@@ -24,6 +24,7 @@ class Engine:
         self.lock = threading.RLock()
         self.trigger = threading.Event()
         self.trigger_reason = "scheduled"
+        self._vpn_wait = threading.Lock()  # one post-VPN-start check at a time
         self.results, self.inv = [], {}
         self.last_check = None
         self.checking = False
@@ -331,10 +332,18 @@ class Engine:
             try:
                 p = subprocess.Popen(["docker", "events", "--format", "{{.Action}} {{.Actor.Attributes.name}}",
                                       "--filter", "type=container", "--filter", "event=die",
-                                      "--filter", "event=oom", "--filter", "event=health_status"],
+                                      "--filter", "event=oom", "--filter", "event=health_status",
+                                      "--filter", "event=start"],
                                      stdout=subprocess.PIPE, text=True)
                 last = 0
                 for line in p.stdout:
+                    if line.startswith("start "):
+                        # The VPN container (re)started: its dependents may now sit in a dead network namespace.
+                        # Check as soon as it is healthy instead of waiting for the next cycle.
+                        vpn = (self.cfg["checks"].get("vpn") or {}).get("container")
+                        if vpn and line.split(None, 1)[1].strip() == vpn:
+                            threading.Thread(target=self._after_vpn_start, args=(vpn,), daemon=True).start()
+                        continue
                     if line.startswith("health_status") and "unhealthy" not in line:
                         continue
                     if time.time() - last > 60 and not self.checking:
@@ -343,6 +352,15 @@ class Engine:
             except Exception:
                 log.exception("docker events watcher crashed")
             time.sleep(15)
+
+    def _after_vpn_start(self, vpn):
+        if self._vpn_wait.locked():
+            return  # already waiting on this restart
+        with self._vpn_wait:
+            healthy = self.fixer._wait_healthy(vpn, timeout=300)
+            time.sleep(5)
+            log.info("VPN container %s started (%s); checking its dependents", vpn, "healthy" if healthy else "not healthy after 5 min")
+            self.trigger_check(f"{vpn} started")
 
     def start(self):
         for target in (self.monitor_loop, self.update_loop, self.docker_events_loop, self.ai.worker,
