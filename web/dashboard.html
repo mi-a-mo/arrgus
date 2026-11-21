@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{TITLE}}</title>
+<style>
+  :root {
+    --bg0: #0e0f14; --bg1: #1b1d27; --card: #181a23; --card2: #1f2130; --line: #2c2e3a;
+    --text: #e8e8e8; --muted: #8b8d98; --accent: #6366ff; --accent-soft: #4a4dff33;
+    --ok: #3ecf8e; --warn: #f5b84b; --fail: #ff5d6c; --info: #6aa8ff;
+  }
+  * { box-sizing: border-box; }
+  html { color-scheme: dark; }
+  body {
+    margin: 0; min-height: 100vh; padding: 28px 16px 60px;
+    background: radial-gradient(circle at top, var(--bg1) 0%, var(--bg0) 60%) fixed, var(--bg0);
+    color: var(--text); font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  h1 { margin: 0 0 6px; font-size: 28px; text-align: center; font-weight: 600; letter-spacing: -0.5px; }
+  p.sub { text-align: center; color: var(--muted); margin: 0 0 24px; font-size: 14px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 12px; font-weight: 600; }
+  button { font: inherit; cursor: pointer; }
+  a { color: var(--info); }
+
+  /* landing-page links */
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 12px; margin-bottom: 28px; }
+  a.tile {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+    padding: 18px 8px; background: linear-gradient(180deg, #23252f 0%, #1b1d26 100%);
+    border: 1px solid var(--line); border-radius: 14px; color: var(--text); text-decoration: none;
+    font-size: 13px; font-weight: 500; transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease;
+  }
+  a.tile:hover { transform: translateY(-3px); border-color: #4a4dff55; box-shadow: 0 8px 20px rgba(74,77,255,.15); }
+  a.tile img { width: 36px; height: 36px; object-fit: contain; border-radius: 8px; }
+
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; margin-bottom: 16px; }
+  .hero { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; justify-content: space-between; }
+  .state { display: flex; align-items: center; gap: 14px; min-width: 0; }
+  .dot { width: 14px; height: 14px; border-radius: 50%; background: var(--muted); flex: none; box-shadow: 0 0 0 5px #ffffff10; }
+  .dot.ok { background: var(--ok); box-shadow: 0 0 0 5px #3ecf8e22; }
+  .dot.warn { background: var(--warn); box-shadow: 0 0 0 5px #f5b84b22; }
+  .dot.fail { background: var(--fail); box-shadow: 0 0 0 5px #ff5d6c22; }
+  .state .big { font-size: 20px; font-weight: 600; }
+  .state .meta { color: var(--muted); font-size: 12.5px; }
+  .buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+  .btn {
+    background: var(--card2); color: var(--text); border: 1px solid var(--line); border-radius: 10px;
+    padding: 8px 13px; font-weight: 500; display: inline-flex; align-items: center; gap: 7px; white-space: nowrap;
+  }
+  .btn:hover:not(:disabled) { border-color: #4a4dff88; }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover:not(:disabled) { filter: brightness(1.1); }
+  .btn.small { padding: 5px 10px; font-size: 12.5px; border-radius: 8px; }
+  .spin { width: 12px; height: 12px; border: 2px solid #ffffff44; border-top-color: #fff; border-radius: 50%; animation: s 0.8s linear infinite; display: inline-block; }
+  @keyframes s { to { transform: rotate(360deg); } }
+
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 820px) { .cols { grid-template-columns: 1fr; } }
+  .cols > .card { margin-bottom: 0; }
+  .stack { display: flex; flex-direction: column; gap: 16px; margin-bottom: 16px; }
+
+  .row { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-top: 1px solid #ffffff0d; }
+  .row:first-child { border-top: 0; padding-top: 0; }
+  .row .grow { flex: 1; min-width: 0; }
+  .row .name { font-weight: 500; }
+  .row .detail { color: var(--muted); font-size: 12.5px; overflow-wrap: anywhere; }
+  .pip { width: 8px; height: 8px; border-radius: 50%; margin-top: 6px; flex: none; background: var(--muted); }
+  .pip.ok { background: var(--ok); } .pip.warn { background: var(--warn); } .pip.fail, .pip.error, .pip.critical { background: var(--fail); }
+  .pip.info, .pip.notice { background: var(--info); }
+
+  .group { margin-bottom: 12px; }
+  .group-h { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 12px;
+             text-transform: uppercase; letter-spacing: .06em; margin: 6px 0; cursor: pointer; user-select: none; }
+  .chips { display: flex; gap: 6px; }
+  .chip { font-size: 11px; padding: 1px 7px; border-radius: 99px; background: #ffffff10; color: var(--muted); text-transform: none; letter-spacing: 0; }
+  .chip.ok { color: var(--ok); background: #3ecf8e18; } .chip.warn { color: var(--warn); background: #f5b84b18; }
+  .chip.fail { color: var(--fail); background: #ff5d6c18; } .chip.info { color: var(--info); background: #6aa8ff18; }
+
+  .issue { border: 1px solid #ff5d6c55; background: #ff5d6c0d; }
+  .empty { color: var(--muted); font-size: 13px; }
+  .ts { color: var(--muted); font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .events { max-height: 460px; overflow: auto; }
+  pre.ev { white-space: pre-wrap; word-break: break-word; margin: 4px 0 0; font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; color: #b9bbc6; }
+
+  /* modal */
+  .modal-bg { position: fixed; inset: 0; background: #05060acc; display: none; align-items: flex-start; justify-content: center; padding: 5vh 16px; z-index: 10; overflow: auto; }
+  .modal-bg.open { display: flex; }
+  .modal { background: var(--card); border: 1px solid var(--line); border-radius: 16px; width: 100%; max-width: 780px; padding: 20px; }
+  .modal h3 { margin: 0 0 4px; font-size: 18px; }
+  .modal .hint { color: var(--muted); font-size: 13px; margin: 0 0 14px; }
+  textarea { width: 100%; min-height: 120px; resize: vertical; background: var(--bg0); color: var(--text); border: 1px solid var(--line);
+             border-radius: 10px; padding: 10px 12px; font: inherit; }
+  textarea:focus { outline: none; border-color: var(--accent); }
+  .modal-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+  .transcript { max-height: 60vh; overflow: auto; background: var(--bg0); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+  .t-text { white-space: pre-wrap; margin: 0 0 10px; }
+  .turn:not(.steps) .t-tool, .turn:not(.steps) .t-out { display: none; }
+  .turn { padding: 0 0 12px; margin: 0 0 12px; border-bottom: 1px solid #ffffff0d; }
+  .turn:last-child { border-bottom: 0; margin-bottom: 0; padding-bottom: 0; }
+  .t-user { background: var(--accent-soft); border: 1px solid #4a4dff55; border-radius: 10px; padding: 8px 11px; margin: 0 0 10px auto;
+            max-width: 85%; width: fit-content; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .turn-bar { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 0 0 8px; color: var(--muted); font-size: 12px; }
+  .followup { display: flex; gap: 8px; margin-top: 12px; align-items: flex-end; }
+  .followup textarea { min-height: 44px; height: 44px; }
+  .tr-bar { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 0 0 8px; color: var(--muted); font-size: 12.5px; }
+  .t-tool { font: 12px/1.4 ui-monospace, Menlo, monospace; color: #a5a8ff; margin: 0 0 4px; white-space: pre-wrap; word-break: break-word; }
+  details.t-out { margin: 0 0 10px; } details.t-out summary { color: var(--muted); font-size: 12px; cursor: pointer; }
+  details.t-out pre { white-space: pre-wrap; word-break: break-word; font: 11.5px/1.4 ui-monospace, Menlo, monospace; color: #9a9caa; max-height: 260px; overflow: auto; margin: 4px 0 0; }
+  .result { border-radius: 10px; padding: 12px; margin-top: 12px; background: var(--card2); border: 1px solid var(--line); }
+  .result.fixed, .result.answered { border-color: #3ecf8e66; } .result.not_fixed, .result.needs_owner { border-color: #ff5d6c66; }
+  .result.partially_fixed { border-color: #f5b84b66; }
+  .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--card2); border: 1px solid var(--line);
+           padding: 10px 16px; border-radius: 10px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 20; max-width: 90vw; }
+  .toast.show { opacity: 1; }
+  /* system panel + meters */
+  .sys { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  .tile2 { background: var(--card2); border: 1px solid var(--line); border-radius: 12px; padding: 14px; min-width: 0; }
+  .tile2 .lbl { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
+  .tile2 .val { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .tile2 .val small { font-size: 13px; color: var(--muted); font-weight: 500; }
+  .tile2 .sub { color: var(--muted); font-size: 12.5px; margin-top: 6px; overflow-wrap: anywhere; }
+  .bar { height: 8px; background: #ffffff12; border-radius: 99px; overflow: hidden; margin-top: 8px; }
+  .bar > i { display: block; height: 100%; width: 0; background: var(--accent); border-radius: 99px; transition: width .6s ease; }
+  .bar.ok > i { background: var(--ok); } .bar.warn > i { background: var(--warn); } .bar.fail > i { background: var(--fail); }
+  .bar.big { height: 12px; }
+  .bar.live > i { background-image: linear-gradient(90deg, #ffffff00 0%, #ffffff33 50%, #ffffff00 100%); background-size: 200px 100%;
+                  animation: sheen 1.4s linear infinite; }
+  @keyframes sheen { from { background-position: -200px 0; } to { background-position: 200px 0; } }
+  .kv { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; margin-top: 8px; }
+  .kv:first-of-type { margin-top: 0; }
+  .kv .k { font-weight: 500; } .kv .v { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .v.ok { color: var(--ok); } .v.warn { color: var(--warn); } .v.fail { color: var(--fail); }
+  .drive { margin-top: 12px; } .drive:first-of-type { margin-top: 0; }
+  .spark { display: block; width: 100%; height: 34px; margin-top: 8px; }
+  .prog { border: 1px solid #4a4dff55; background: #4a4dff0d; border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+  .prog .top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .prog .pct { font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .prog .item { margin-top: 12px; } .prog .item .kv { margin-top: 0; }
+  .btn.danger { border-color: #ff5d6c88; color: #ffb3ba; }
+  .btn.danger:hover:not(:disabled) { border-color: var(--fail); }
+  .badge { width: 7px; height: 7px; border-radius: 50%; background: var(--warn); display: inline-block; }
+  .bigcount { font-size: 44px; font-weight: 700; text-align: center; font-variant-numeric: tabular-nums; margin: 10px 0; }
+  .foot { text-align: center; color: var(--muted); font-size: 12px; margin-top: 24px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 id="title"></h1>
+  <p class="sub" id="subtitle"></p>
+  <div class="grid" id="links"></div>
+
+  <div class="card hero">
+    <div class="state">
+      <div class="dot" id="dot"></div>
+      <div>
+        <div class="big" id="overall">Loading…</div>
+        <div class="meta" id="meta"></div>
+      </div>
+    </div>
+    <div class="buttons">
+      <button class="btn" id="b-status" title="Refresh the current status">Status</button>
+      <button class="btn" id="b-check" title="Run every check now and auto-fix known problems">System check</button>
+      <button class="btn" id="b-versions" title="Check registries for new image versions now">Version check</button>
+      <button class="btn" id="b-ask">Ask AI</button>
+      <button class="btn primary" id="b-report">Report issue</button>
+      <button class="btn" id="b-reboot" title="Reboot the server">Reboot</button>
+    </div>
+  </div>
+
+  <div class="card"><h2>System</h2><div class="sys" id="system"><div class="empty">Loading…</div></div></div>
+  <div id="issues"></div>
+  <div id="updates"></div>
+
+  <div class="cols">
+    <div class="card"><h2>Checks</h2><div id="checks"><div class="empty">Waiting for the first check…</div></div></div>
+    <div class="stack" style="margin:0">
+      <div class="card"><h2>AI sessions</h2><div id="jobs"><div class="empty">None yet.</div></div></div>
+      <div class="card"><h2>Activity log</h2><div class="events" id="events"></div></div>
+    </div>
+  </div>
+  <div class="foot" id="foot"></div>
+</div>
+
+<div class="modal-bg" id="modal"><div class="modal" id="modal-body"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const BOOT = {{BOOT_JSON}};
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let S = null, openGroups = JSON.parse(safeGet("sentinel.groups") || "{}");
+function safeGet(k) { try { return localStorage.getItem(k); } catch { return null; } }
+function safeSet(k, v) { try { localStorage.setItem(k, v); } catch {} }
+
+function ago(iso) {
+  if (!iso) return "never";
+  const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+  if (s < 60) return Math.round(s) + "s ago";
+  if (s < 3600) return Math.round(s / 60) + "m ago";
+  if (s < 86400) return (s / 3600).toFixed(1) + "h ago";
+  return (s / 86400).toFixed(1) + "d ago";
+}
+function when(iso) {
+  if (!iso) return "";
+  const d = new Date(iso), today = new Date().toDateString() === d.toDateString();
+  return today ? d.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"})
+               : d.toLocaleDateString([], {month: "short", day: "numeric"}) + " " + d.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"});
+}
+function bytes(n) {
+  if (n == null) return "?";
+  const u = ["B", "KB", "MB", "GB", "TB", "PB"]; let i = 0;
+  while (n >= 1000 && i < u.length - 1) { n /= 1000; i++; }
+  return (n >= 100 || i === 0 ? Math.round(n) : n.toFixed(n >= 10 ? 1 : 2)) + " " + u[i];
+}
+const lvl = (v, warn, crit) => v == null ? "" : v >= crit ? "fail" : v >= warn ? "warn" : "ok";
+const bar = (pct, cls = "", extra = "") => `<div class="bar ${cls} ${extra}"><i style="width:${Math.max(0, Math.min(100, pct || 0))}%"></i></div>`;
+function spark(vals) {
+  if (!vals || vals.length < 2) return "";
+  const w = 200, h = 34, max = Math.max(25, ...vals), step = w / (vals.length - 1);
+  const pts = vals.map((v, i) => `${(i * step).toFixed(1)},${(h - 2 - (v / max) * (h - 4)).toFixed(1)}`).join(" ");
+  return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">
+    <polyline points="0,${h} ${pts} ${w},${h}" fill="#6366ff22" stroke="none"/>
+    <polyline points="${pts}" fill="none" stroke="#6366ff" stroke-width="1.5" vector-effect="non-scaling-stroke"/></svg>`;
+}
+function renderSystem(sys) {
+  if (!sys) return;
+  const c = sys.cpu, m = sys.memory, d = sys.disks;
+  const cpuPct = c.pct == null ? null : c.pct;
+  const loadLvl = lvl(c.load[1], c.cores, c.cores * 2);
+  const cpu = `<div class="tile2"><div class="lbl">CPU</div>
+    <div class="val">${cpuPct == null ? "…" : cpuPct.toFixed(cpuPct < 10 ? 1 : 0) + "%"} <small>in use</small></div>
+    ${bar(cpuPct, lvl(cpuPct, 80, 95))}
+    <div class="sub">Load <span class="v ${loadLvl}">${c.load.join(" · ")}</span> (1/5/15 min, ${c.cores} cores)</div>
+    ${spark(c.history)}<div class="sub" style="margin-top:2px">${c.history.length > 1 ? "last " + Math.round(c.history.length * 5 / 60) + " min · " : ""}${esc(c.model || "")}</div></div>`;
+  const mem = `<div class="tile2"><div class="lbl">Memory</div>
+    <div class="val">${bytes(m.used)} <small>of ${bytes(m.total)}</small></div>
+    ${bar(m.pct, lvl(m.pct, 85, 95))}
+    <div class="sub">${m.pct}% used · ${bytes(m.available)} available${m.swap_total ? ` · swap ${bytes(m.swap_used)} of ${bytes(m.swap_total)}` : ""}</div></div>`;
+  const temps = `<div class="tile2"><div class="lbl">Temperature</div>${sys.temps.length ? sys.temps.map((t) =>
+    `<div class="kv"><span class="k">${esc(t.name)}</span><span class="v ${lvl(t.c, t.warn, t.crit)}">${Math.round(t.c)}°C</span></div>
+     ${bar(100 * t.c / t.crit, lvl(t.c, t.warn, t.crit))}`).join("") : `<div class="empty">No temperature sensors found.</div>`}
+    <div class="sub">Media drives (USB/SATA) don't report temperature.</div></div>`;
+  const disks = `<div class="tile2"><div class="lbl">Storage</div>${d.items.map((x) => x.mounted
+    ? `<div class="drive"><div class="kv"><span class="k">${esc(x.path)}</span><span class="v ${lvl(x.pct, d.warn, d.crit)}">${Math.round(x.pct)}%</span></div>
+       ${bar(x.pct, lvl(x.pct, d.warn, d.crit))}
+       <div class="sub" style="margin-top:4px">${bytes(x.used)} used · <b style="color:var(--text)">${bytes(x.free)} free</b> of ${bytes(x.total)}</div></div>`
+    : `<div class="drive"><div class="kv"><span class="k">${esc(x.path)}</span><span class="v fail">NOT MOUNTED</span></div></div>`).join("")}</div>`;
+  $("system").innerHTML = cpu + mem + temps + disks;
+}
+
+function progressHtml(p) {
+  if (!p || !p.items || !p.items.length) return "";
+  if (!p.active && safeGet("sentinel.progress.dismissed") === p.finished) return "";
+  const icon = {ok: "ok", failed: "fail", rolled_back: "warn", running: "info", pending: ""};
+  const word = {ok: "done", failed: "failed", rolled_back: "rolled back", running: "in progress", pending: "waiting"};
+  const overallCls = p.active ? "" : p.ok ? "ok" : "warn";
+  return `<div class="prog"><div class="top"><div><div class="name">${esc(p.label)}</div>
+      <div class="detail">${p.active ? `<span class="spin"></span> ` : ""}${esc(p.stage)}${!p.active ? " · " + esc(when(p.finished)) : ""}</div></div>
+      <div class="pct">${p.percent}%</div></div>
+    ${bar(p.percent, overallCls, (p.active ? "live " : "") + "big")}
+    ${p.items.length > 1 || p.kind === "os" ? p.items.map((it) => `<div class="item"><div class="kv"><span class="k">${esc(it.name)}</span>
+      <span class="chip ${icon[it.status] || ""}">${esc(word[it.status] || it.status)}${it.status === "running" ? " · " + it.percent + "%" : ""}</span></div>
+      ${bar(it.percent, icon[it.status] === "info" ? "" : icon[it.status], it.status === "running" ? "live" : "")}
+      <div class="detail" style="margin-top:4px">${esc(it.stage)}</div></div>`).join("")
+      : `<div class="detail" style="margin-top:6px">${esc(p.items[0].stage)}</div>`}
+    ${!p.active ? `<div style="text-align:right;margin-top:10px"><button class="btn small" data-dismiss="${esc(p.finished)}">Dismiss</button></div>` : ""}</div>`;
+}
+
+function toast(msg) { const t = $("toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 3500); }
+
+async function api(path, body) {
+  const opt = body === undefined ? {} : {method: "POST", headers: {"X-Sentinel": "1", "Content-Type": "application/json"}, body: JSON.stringify(body)};
+  const r = await fetch(path, opt);
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || ("HTTP " + r.status));
+  return d;
+}
+
+// ---------- static header ----------
+document.title = BOOT.title;
+$("title").textContent = BOOT.title;
+$("subtitle").textContent = BOOT.subtitle;
+$("links").innerHTML = BOOT.links.map((l) => `<a class="tile" href="${esc(l.url)}" rel="noreferrer">
+  ${l.icon ? `<img src="${esc(l.icon)}" alt="" onerror="this.style.display='none'">` : ""}${esc(l.name)}</a>`).join("");
+
+// ---------- render ----------
+function render() {
+  const s = S; if (!s) return;
+  const label = {ok: "All systems healthy", warn: "Healthy, with warnings", fail: "Problems detected", unknown: "No check yet"}[s.overall];
+  $("dot").className = "dot " + s.overall;
+  $("overall").textContent = label;
+  const running = s.actions.filter((a) => a.status === "running");
+  $("meta").innerHTML = (s.checking ? `<span class="spin"></span> checking… · ` : "") +
+    `Last check ${esc(ago(s.last_check))} · ${s.results.filter((r) => r.status === "ok").length}/${s.results.length} OK` +
+    (running.length ? " · " + running.map((a) => esc(a.label) + "…").join(", ") : "");
+  btnBusy("b-check", s.checking, "System check");
+  btnBusy("b-versions", s.updates.checking || running.some((a) => a.kind === "versions"), "Version check");
+  $("b-ask").disabled = $("b-report").disabled = !s.ai.enabled;
+  const rb = s.reboot || {}, rbtn = $("b-reboot");
+  rbtn.className = "btn" + (rb.required || rb.scheduled ? " danger" : "");
+  rbtn.innerHTML = rb.rebooting ? `<span class="spin"></span> Rebooting…` : rb.scheduled ? `Rebooting in ${rb.scheduled.seconds_left}s`
+    : (rb.required ? `<span class="badge"></span> Reboot` : "Reboot");
+  rbtn.title = rb.required ? "A reboot is pending for: " + (rb.packages || []).join(", ") : "Reboot the server";
+
+  renderSystem(s.system);
+
+  // open issues
+  $("issues").innerHTML = s.incidents.length ? `<div class="card issue"><h2 style="color:var(--fail)">Open issues</h2>` +
+    s.incidents.map((i) => `<div class="row"><div class="pip fail"></div><div class="grow"><div class="name">${esc(i.name)}</div>
+      <div class="detail">${esc(i.detail)} · open since ${esc(when(i.opened))} · fix attempts ${i.attempts}${i.ai_runs ? ", AI runs " + i.ai_runs : ""}
+      ${i.last_fixer ? " · last: " + esc(i.last_fixer) : ""}</div></div></div>`).join("") + `</div>` : "";
+
+  // updates
+  const pend = s.updates.images.filter((e) => ["available", "pulled", "applying"].includes(e.status));
+  const os = s.updates.os;
+  let u = `<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+    <h2 style="margin:0">Updates</h2><span class="ts">${s.updates.checked ? "checked " + esc(ago(s.updates.checked)) : "not checked yet"}</span></div>`;
+  const prog = s.updates.progress || {};
+  u += progressHtml(prog);
+  const updating = !!prog.active;
+  if (pend.length) {
+    const approvable = pend.filter((e) => e.status !== "applying");
+    u += pend.map((e) => `<div class="row"><div class="pip info"></div><div class="grow"><div class="name">${esc(e.service)}</div>
+      <div class="detail">${esc(e.image)} · ${esc(e.current || "?")} → ${esc(e.available || "new build")}${e.status === "pulled" ? " (already downloaded)" : ""}</div></div>
+      ${e.status === "applying" ? `<span class="btn small" style="cursor:default"><span class="spin"></span> applying</span>`
+        : `<button class="btn small primary" data-approve="${esc(e.service)}"${updating ? " disabled" : ""}>Approve</button>`}</div>`).join("");
+    if (approvable.length > 1) u += `<div style="text-align:right;margin-top:8px"><button class="btn small" data-approve="${esc(approvable.map((e) => e.service).join(","))}"${updating ? " disabled" : ""}>Approve all ${approvable.length}</button></div>`;
+  } else {
+    u += `<div class="empty">All container images are current.${s.updates.images.some((e) => e.error) ? " (Some registries could not be checked: " + esc(s.updates.images.filter((e) => e.error).map((e) => e.service).join(", ")) + ")" : ""}</div>`;
+  }
+  if (os && os.count) {
+    u += `<div class="row" style="margin-top:8px"><div class="pip info"></div><div class="grow"><div class="name">OS packages</div>
+      <div class="detail">${os.count} upgradable (${os.security} security): ${esc(os.packages.slice(0, 12).join(", "))}${os.packages.length > 12 ? "…" : ""}
+      ${(os.held || []).length ? `<br>${os.held.length} need new packages (${esc(os.held.join(", "))}); installed together with the rest.` : ""}
+      ${os.kernel ? "<br>Includes a new kernel: reboot afterwards to use it." : ""}${os.docker ? "<br>Includes Docker: every container restarts briefly during the upgrade." : ""}</div></div>
+      <button class="btn small" data-approve-os="1"${updating ? " disabled" : ""}>Approve</button></div>`;
+  }
+  $("updates").innerHTML = u + `</div>`;
+
+  // checks grouped
+  const groups = {};
+  for (const r of s.results) (groups[r.group] = groups[r.group] || []).push(r);
+  const order = (r) => ({fail: 0, warn: 1}[r.status] ?? 2);
+  $("checks").innerHTML = Object.keys(groups).sort().map((g) => {
+    const rs = groups[g].sort((a, b) => order(a) - order(b) || a.name.localeCompare(b.name));
+    const n = (st) => rs.filter((r) => r.status === st).length;
+    const bad = n("fail") + n("warn") > 0;
+    const open = openGroups[g] ?? bad;
+    const shown = open ? rs : rs.filter((r) => r.status !== "ok");
+    return `<div class="group"><div class="group-h" data-group="${esc(g)}"><span>${open ? "▾" : "▸"} ${esc(g)}</span><span class="chips">
+      ${n("fail") ? `<span class="chip fail">${n("fail")} failing</span>` : ""}${n("warn") ? `<span class="chip warn">${n("warn")} warn</span>` : ""}
+      <span class="chip ok">${n("ok")} ok</span></span></div>` +
+      shown.map((r) => `<div class="row"><div class="pip ${r.status}"></div><div class="grow"><div class="name">${esc(r.name)}</div>
+      <div class="detail">${esc(r.detail)}</div></div></div>`).join("") + `</div>`;
+  }).join("") || `<div class="empty">Waiting for the first check…</div>`;
+
+  // AI jobs
+  const statusChip = (j) => {
+    const r = j.result && j.result.status;
+    if (j.status === "running") return `<span class="chip info"><span class="spin" style="width:9px;height:9px"></span> running</span>`;
+    if (j.status === "queued") return `<span class="chip">queued</span>`;
+    const cls = {fixed: "ok", answered: "ok", partially_fixed: "warn"}[r] || (j.status === "done" ? "info" : "fail");
+    return `<span class="chip ${cls}">${esc((r || j.status).replace("_", " "))}</span>`;
+  };
+  $("jobs").innerHTML = s.ai.jobs.length ? s.ai.jobs.map((j) => `<div class="row" style="cursor:pointer" data-job="${esc(j.id)}">
+    <div class="grow"><div class="name">${esc(j.title)}</div><div class="detail">${esc(j.kind)} · ${esc(when(j.updated || j.created))}${j.turns > 1 ? ` · ${j.turns} messages` : ""}${j.cost_usd ? " · $" + j.cost_usd.toFixed(2) : ""}</div></div>
+    ${statusChip(j)}</div>`).join("") : `<div class="empty">${s.ai.enabled ? "None yet. Use Ask AI or Report issue." : "AI is disabled in this box's config."}</div>`;
+
+  // events
+  $("events").innerHTML = s.events.length ? s.events.map((e) => `<div class="row"><div class="pip ${esc(e.level)}"></div><div class="grow">
+    <div class="name">${esc(e.title)}</div><div class="detail">${esc(e.kind)}</div>${e.detail ? `<pre class="ev">${esc(e.detail.slice(0, 1500))}</pre>` : ""}</div>
+    <span class="ts">${esc(when(e.ts))}</span></div>`).join("") : `<div class="empty">No events yet.</div>`;
+
+  const p = s.push || {};
+  $("foot").textContent = `Sentinel on ${s.box} · up since ${when(s.started)} · ` +
+    (!s.remote ? "log not linked to GitHub yet" : p.ok === null ? "log not pushed yet" : p.ok ? `log pushed ${ago(p.at)}` : "log push FAILING");
+}
+
+function btnBusy(id, busy, label) {
+  const b = $(id); b.disabled = busy;
+  b.innerHTML = busy ? `<span class="spin"></span> ${label}` : label;
+}
+
+// ---------- polling ----------
+let pollTimer;
+async function refresh(manual) {
+  try {
+    S = await api("/api/status");
+    if (BOOT.ui && S.ui && S.ui !== BOOT.ui) {
+      // Sentinel was updated: reload now, or as soon as the AI window is closed.
+      if (!modal.classList.contains("open")) return location.reload();
+      if (!$("update-note")) $("job-fu")?.insertAdjacentHTML("afterend", `<div id="update-note" class="hint" style="margin-top:8px">Sentinel was updated. The page will reload when you close this window.</div>`);
+    }
+    render();
+    if (manual) toast("Status refreshed");
+  } catch (e) { $("overall").textContent = "Sentinel unreachable"; $("meta").textContent = e.message; $("dot").className = "dot"; }
+  clearTimeout(pollTimer);
+  const busy = S && ((S.reboot || {}).scheduled || S.actions.some((a) => a.status === "running") || S.ai.current || (S.updates.progress || {}).active);
+  pollTimer = setTimeout(refresh, busy ? 2500 : 10000);
+}
+
+// ---------- actions ----------
+$("b-status").onclick = () => refresh(true);
+$("b-check").onclick = async () => {
+  try { await api("/api/check", {}); toast("Full system check started"); } catch (e) { toast(e.message); }
+  refresh();
+};
+$("b-versions").onclick = async () => {
+  try { await api("/api/versions", {}); toast("Version check started"); } catch (e) { toast(e.message); }
+  refresh();
+};
+document.addEventListener("click", async (ev) => {
+  const g = ev.target.closest("[data-group]");
+  if (g) { const k = g.dataset.group, cur = openGroups[k] ?? (g.textContent.includes("failing") || g.textContent.includes("warn"));
+           openGroups[k] = !cur; safeSet("sentinel.groups", JSON.stringify(openGroups)); render(); return; }
+  const dm = ev.target.closest("[data-dismiss]");
+  if (dm) { safeSet("sentinel.progress.dismissed", dm.dataset.dismiss); return render(); }
+  const a = ev.target.closest("[data-approve]");
+  if (a) {
+    const svcs = a.dataset.approve.split(",");
+    if (!confirm(`Update ${svcs.join(", ")}?\n\nSentinel pulls the new image, recreates the container, health-checks it and rolls back if it fails.`)) return;
+    try { await api("/api/updates/approve", {services: svcs}); toast("Update started: " + svcs.join(", ")); } catch (e) { toast(e.message); }
+    return refresh();
+  }
+  if (ev.target.closest("[data-approve-os]")) {
+    const o = (S && S.updates.os) || {};
+    if (!confirm(`Upgrade ${o.count || "the"} OS package(s) now?` + (o.docker ? "\n\nThis includes Docker: every container restarts briefly." : "\n\nServices keep running.")
+                 + (o.kernel ? "\n\nIncludes a new kernel, which only takes effect after a reboot." : "\n\nSome upgrades (like libc6) only take effect after a reboot."))) return;
+    try { await api("/api/updates/approve-os", {}); toast("OS upgrade started"); } catch (e) { toast(e.message); }
+    return refresh();
+  }
+  const j = ev.target.closest("[data-job]");
+  if (j) return openJob(j.dataset.job);
+});
+
+// ---------- reboot ----------
+let rbTimer = null, rbStarted = null, rbSince = null;
+$("b-reboot").onclick = async () => {
+  const rb = (S && S.reboot) || {};
+  if (rb.scheduled) return rebootOverlay();
+  const kern = rb.kernel_new && rb.kernel_new !== rb.kernel_running ? `\nKernel: ${rb.kernel_running} → ${rb.kernel_new}` : "";
+  const msg = `Reboot ${S ? S.box : "the server"} now?\n\nPlex and every app go offline for a few minutes.` +
+    (rb.required ? `\nPending: ${(rb.packages || []).join(", ")}${kern}` : "\n(No reboot is currently pending.)") +
+    "\n\nYou get 15 seconds to cancel.";
+  if (!confirm(msg)) return;
+  let body = {};
+  for (;;) {
+    try { await api("/api/reboot", body); break; }
+    catch (e) {
+      if (body.force || !/running|being applied/.test(e.message) || !confirm(e.message + "\n\nReboot anyway? It will be interrupted.")) return toast(e.message);
+      body = {force: true};
+    }
+  }
+  rbStarted = S && S.started; rbSince = Date.now();
+  rebootOverlay();
+};
+function rebootOverlay() {
+  rbStarted = rbStarted || (S && S.started); rbSince = rbSince || Date.now();
+  $("modal-body").innerHTML = `<h3>Reboot</h3><p class="hint" id="rb-hint"></p><div class="bigcount" id="rb-count"></div>
+    <div class="modal-foot"><button class="btn" id="rb-close">Hide</button><button class="btn danger" id="rb-cancel">Cancel reboot</button></div>`;
+  $("rb-close").onclick = closeModal;
+  $("rb-cancel").onclick = async () => {
+    try { await api("/api/reboot/cancel", {}); toast("Reboot cancelled"); rbStarted = rbSince = null; closeModal(); refresh(); }
+    catch (e) { toast(e.message); }
+  };
+  modal.classList.add("open");
+  clearTimeout(rbTimer); rebootPoll();
+}
+async function rebootPoll() {
+  let st = null;
+  try { st = await api("/api/status"); } catch {}
+  const el = (id) => document.getElementById(id), secs = Math.round((Date.now() - (rbSince || Date.now())) / 1000);
+  const mmss = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
+  if (st && rbStarted && st.started !== rbStarted) {          // a new Sentinel process: the box is back
+    if (el("rb-count")) { el("rb-count").textContent = "Back up"; el("rb-hint").textContent = `Took ${mmss}. Reloading…`; }
+    return setTimeout(() => location.reload(), 2500);
+  }
+  const rb = st && st.reboot;
+  if (st && !rb.scheduled && !rb.rebooting) { rbStarted = rbSince = null; if (el("rb-count")) closeModal(); return; }   // cancelled or failed
+  if (el("rb-count")) {
+    if (rb && rb.scheduled && !rb.rebooting) {
+      el("rb-count").textContent = rb.scheduled.seconds_left + "s";
+      el("rb-hint").textContent = "Rebooting soon. Sentinel pushes the log to GitHub first.";
+    } else {
+      el("rb-count").innerHTML = `<span class="spin" style="width:28px;height:28px;border-width:3px"></span>`;
+      el("rb-hint").textContent = `Rebooting… waiting for the server to come back (${mmss}). This page reloads by itself.`;
+      el("rb-cancel").style.display = "none";
+    }
+  }
+  rbTimer = setTimeout(rebootPoll, st && rb && rb.scheduled && !rb.rebooting ? 1000 : 4000);
+}
+
+// ---------- AI modal ----------
+const modal = $("modal");
+modal.addEventListener("click", (e) => { if (e.target === modal) closeModal(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
+let jobTimer = null, jobId = null;
+function closeModal() { modal.classList.remove("open"); clearTimeout(jobTimer); jobId = null; if (S && BOOT.ui && S.ui !== BOOT.ui) location.reload(); }
+
+function openForm(kind) {
+  const ask = kind === "ask";
+  $("modal-body").innerHTML = `<h3>${ask ? "Ask AI" : "Report an issue"}</h3>
+    <p class="hint">${ask ? "Opus investigates the live system and answers. It only changes things if you ask it to."
+                          : "Describe what's wrong. Opus troubleshoots the live system, fixes it, verifies, and logs everything."}</p>
+    <textarea id="ai-text" placeholder="${ask ? "e.g. Why did Radarr stop importing yesterday?" : "e.g. Plex buffers on every 4K movie since last night"}"></textarea>
+    <div class="modal-foot"><button class="btn" id="ai-cancel">Cancel</button><button class="btn primary" id="ai-go">${ask ? "Ask" : "Troubleshoot & fix"}</button></div>`;
+  modal.classList.add("open");
+  const ta = $("ai-text"); ta.focus();
+  ta.addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) $("ai-go").click(); });
+  $("ai-cancel").onclick = closeModal;
+  $("ai-go").onclick = async () => {
+    const text = ta.value.trim(); if (!text) return ta.focus();
+    $("ai-go").disabled = true;
+    try {
+      const r = await api(ask ? "/api/ai/ask" : "/api/ai/report", {text});
+      toast(r.position > 1 ? `Queued (position ${r.position})` : "AI session started");
+      refresh(); openJob(r.job.id);
+    } catch (e) { toast(e.message); $("ai-go").disabled = false; }
+  };
+}
+$("b-ask").onclick = () => openForm("ask");
+$("b-report").onclick = () => openForm("report");
+
+// A conversation (thread) is one or more turns; each turn is one AI job. Only the open thread is polled.
+let threadSig = "", openSteps = new Set(), fuTarget = null;
+async function openJob(id) {
+  clearTimeout(jobTimer); jobId = id; threadSig = ""; openSteps = new Set(); fuTarget = null;
+  $("modal-body").innerHTML = `<h3 id="job-title">AI conversation</h3><p class="hint" id="job-meta"></p>
+    <div class="transcript" id="job-tr"><div class="empty">Loading…</div></div>
+    <div class="followup" id="job-fu"><textarea id="fu-text" placeholder="Reply or ask a follow-up… (Ctrl+Enter to send)"></textarea>
+      <button class="btn primary" id="fu-go" disabled>Send</button></div>
+    <div class="hint" id="fu-note" style="margin:6px 0 0"></div>
+    <div class="modal-foot"><button class="btn" id="job-close">Close</button></div>`;
+  $("job-close").onclick = closeModal;
+  modal.classList.add("open");
+  const t = $("fu-text"), go = $("fu-go");
+  t.addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) go.click(); });
+  go.onclick = async () => {
+    const text = t.value.trim(); if (!text) return t.focus();
+    if (!fuTarget) return;
+    go.disabled = true;
+    try {
+      const r = await api("/api/ai/followup", {job: fuTarget, text});
+      t.value = ""; fuTarget = null; toast(r.position > 1 ? `Queued (position ${r.position})` : "Sent");
+      refresh(); clearTimeout(jobTimer); threadSig = ""; pollJob(id);
+    } catch (e) { toast(e.message); go.disabled = false; }
+  };
+  pollJob(id);
+}
+
+function turnHtml(j, i, n) {
+  const steps = j.transcript.filter((s) => s.type === "tool").length;
+  const live = ["queued", "running"].includes(j.status);
+  const open = openSteps.has(j.id);
+  let body = j.transcript.map((s) => s.type === "text" ? (s.text ? `<div class="t-text">${esc(s.text)}</div>` : "")
+    : s.type === "tool" ? `<div class="t-tool">$ ${esc(s.text)}</div>`
+    : `<details class="t-out"><summary>output</summary><pre>${esc(s.text)}</pre></details>`).join("");
+  if (!live && j.result_text && !j.transcript.some((s) => s.type === "text" && s.text)) body = `<div class="t-text">${esc(j.result_text)}</div>` + body;
+  const progress = j.status === "queued" ? "Queued: waiting for another AI session to finish…"
+    : j.status === "running" ? `<span class="spin"></span> Working${steps ? ` · ${steps} step${steps > 1 ? "s" : ""}` : ""}…` : "";
+  const r = j.result || (j.status === "interrupted" ? {status: "interrupted", summary: "Sentinel restarted while this was running."} : null);
+  let card = "";
+  if (!live && r && (r.status !== "answered" || (r.actions || []).length || r.owner_action)) {
+    const acts = r.actions || [];
+    card = `<div class="result ${esc(r.status)}">
+      ${r.status !== "answered" ? `<div class="name">Outcome: ${esc((r.status || "").replace("_", " "))}</div>
+        ${r.summary ? `<div style="white-space:pre-wrap;margin-top:6px">${esc(r.summary)}</div>` : ""}` : ""}
+      ${acts.length ? `<div style="margin-top:8px" class="detail">Actions taken:</div><ul style="margin:4px 0 0 18px;padding:0">${acts.map((a) => `<li>${esc(a)}</li>`).join("")}</ul>` : ""}
+      ${r.owner_action ? `<div style="margin-top:8px;color:var(--warn)">You need to: ${esc(r.owner_action)}</div>` : ""}</div>`;
+  }
+  const meta = `${esc(when(j.created))}${j.cost_usd ? " · $" + j.cost_usd.toFixed(2) : ""}`;
+  return `<div class="turn${open ? " steps" : ""}" data-turn="${esc(j.id)}">
+    <div class="t-user">${esc(j.request)}</div>
+    <div class="turn-bar"><span>${progress || meta}</span>
+      ${steps ? `<button class="btn small" data-steps="${esc(j.id)}">${open ? "Hide" : "Show"} steps (${steps})</button>` : ""}</div>
+    ${body}${card}</div>`;
+}
+
+document.addEventListener("click", (ev) => {
+  const b = ev.target.closest("[data-steps]"); if (!b) return;
+  const id = b.dataset.steps, t = b.closest(".turn");
+  if (openSteps.has(id)) openSteps.delete(id); else openSteps.add(id);
+  t.classList.toggle("steps", openSteps.has(id));
+  b.textContent = b.textContent.replace(/^(Show|Hide)/, openSteps.has(id) ? "Hide" : "Show");
+});
+
+async function pollJob(id) {
+  if (jobId !== id) return;
+  let th;
+  try { th = await api(`/api/ai/thread/${encodeURIComponent(id)}`); }
+  catch (e) { $("job-meta").textContent = e.message; jobTimer = setTimeout(() => pollJob(id), 4000); return; }
+  if (jobId !== id) return;
+  const last = th.turns[th.turns.length - 1];
+  const live = ["queued", "running"].includes(last.status);
+  const sig = JSON.stringify(th.turns.map((j) => [j.id, j.status, j.transcript.length])) + th.can_follow_up;
+  if (sig !== threadSig) {
+    threadSig = sig;
+    $("job-title").textContent = th.title;
+    const cost = th.turns.reduce((a, j) => a + (j.cost_usd || 0), 0);
+    $("job-meta").textContent = `${th.kind} · ${th.turns.length} message${th.turns.length > 1 ? "s" : ""}${cost ? " · $" + cost.toFixed(2) : ""}`;
+    const tr = $("job-tr"), atBottom = tr.scrollHeight - tr.scrollTop - tr.clientHeight < 60;
+    tr.innerHTML = th.turns.map(turnHtml).join("");
+    if (atBottom || live) tr.scrollTop = tr.scrollHeight;
+  }
+  // The reply box is always there; only Send waits for the AI to finish.
+  fuTarget = th.can_follow_up ? last.id : null;
+  $("fu-go").disabled = !th.can_follow_up;
+  $("fu-note").textContent = th.can_follow_up ? "" : live ? "Opus is still replying. You can type now and send when it finishes." : (th.follow_up_error || "");
+  jobTimer = setTimeout(() => pollJob(id), live ? 2000 : 8000);
+}
+
+refresh();
+</script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+state/
+*.bak-*
+
+# Box-specific / generated: kept on the box, not published
+config/*.toml
+!config/example.toml
+box-notes.md
+HANDOFF.md
+workspace/

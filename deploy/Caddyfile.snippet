@@ -1,0 +1,10 @@
+# Sentinel dashboard. Replace @SECRET@ with the contents of state/proxy_secret.
+# The upstream is the docker bridge gateway the Caddy container sits on (see web.listen).
+media.example.com {
+	tls {
+		dns cloudflare {env.CF_API_TOKEN}
+	}
+	reverse_proxy 172.18.0.1:8765 {
+		header_up X-Sentinel-Proxy "@SECRET@"
+	}
+}

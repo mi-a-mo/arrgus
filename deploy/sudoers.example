@@ -1,0 +1,11 @@
+# OPTIONAL. Lets Sentinel's playbook fixes (and its AI) run the few root commands they need without a
+# password. Without it, those fixes fail cleanly and are escalated/reported instead.
+# Install (as the owner, after reviewing):
+#   sudo install -m 0440 deploy/sudoers.example /etc/sudoers.d/sentinel && sudo visudo -c
+# Then update `sudo_note` in config/<box>.toml so the AI knows these are allowed.
+# Replace `youruser` with the account Sentinel runs as and the mount points with your config's `checks.mounts`.
+youruser ALL=(root) NOPASSWD: /usr/bin/mount /mnt/media1, /usr/bin/mount /mnt/media2
+youruser ALL=(root) NOPASSWD: /usr/bin/systemctl restart docker, /usr/bin/systemctl restart tailscaled
+youruser ALL=(root) NOPASSWD: /usr/bin/apt-get update
+youruser ALL=(root) NOPASSWD: /usr/bin/apt-get -y -o Dpkg\:\:Options\:\:\=--force-confdef -o Dpkg\:\:Options\:\:\=--force-confold upgrade
+youruser ALL=(root) NOPASSWD: /usr/bin/apt-get -y --with-new-pkgs -o Dpkg\:\:Options\:\:\=--force-confdef -o Dpkg\:\:Options\:\:\=--force-confold upgrade

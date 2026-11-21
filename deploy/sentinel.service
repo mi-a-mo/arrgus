@@ -1,0 +1,23 @@
+# systemd *user* unit. Installed by deploy/install.sh to ~/.config/systemd/user/sentinel.service.
+# With lingering enabled (loginctl enable-linger $USER) it starts at boot without a login, and
+# Sentinel's boot sequence runs the full post-reboot check when host uptime is below boot_window.
+[Unit]
+Description=Sentinel - AI monitor for this Docker host
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+Environment=SENTINEL_CONFIG=@CONFIG@
+Environment=PYTHONUNBUFFERED=1
+Environment=PATH=@HOME@/.local/bin:/usr/local/bin:/usr/bin:/bin
+WorkingDirectory=@ROOT@
+ExecStart=/usr/bin/python3 @ROOT@/sentinel.py serve
+Restart=always
+RestartSec=10
+# An AI session can run up to ai.timeout; don't let a stop hang forever.
+TimeoutStopSec=30
+KillMode=control-group
+
+[Install]
+WantedBy=default.target
