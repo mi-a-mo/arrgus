@@ -84,6 +84,7 @@ class App:
         self.page = None
         self.sessions = S.Sessions()
         self.save_lock = threading.Lock()
+        self.test_lock = threading.Lock()
 
     # ---- views -------------------------------------------------------------
     def render_page(self):
@@ -215,6 +216,40 @@ class App:
         t.join(90)
         return 200, {"last_push": lg.last_push}
 
+    # ---- settings: AI agent ---------------------------------------------------
+    def do_ai_save(self, body):
+        changes = S.build_ai_overlay(body, self.cfg)
+        before = (self.cfg["ai"].get("agent", "claude"), S.ai_view(self.cfg, self.eng.ai)["access"],
+                  self.cfg["ai"].get("enabled", True), self.cfg["ai"].get("auto_escalate", True))
+        with self.save_lock:
+            S.save(self.cfg, changes, load_config)
+        v = S.ai_view(self.cfg, self.eng.ai)
+        name = next(a["name"] for a in v["agents"] if a["id"] == v["agent"])
+        after = (v["agent"], v["access"], v["enabled"], v["auto_escalate"])
+        if after != before:
+            self.eng.log.event("info", "AI settings saved from the dashboard",
+                               f"agent: {name}; may {'fix things' if v['access'] == 'full' else 'only investigate' if v['access'] == 'read_only' else 'use the config-file permission mode'}; "
+                               f"AI {'on' if v['enabled'] else 'off'}; automatic escalation {'on' if v['auto_escalate'] else 'off'}", push=True)
+        return 200, {"ok": True, "ai": v}
+
+    def do_ai_test(self, body):
+        from core import agents
+        aid = body.get("agent")
+        if aid not in agents.AGENTS:
+            raise ValueError("unknown agent")
+        if self.eng.ai.busy():
+            return 409, {"error": "an AI session is running; test again when it has finished"}
+        if not self.test_lock.acquire(blocking=False):
+            return 409, {"error": "a test is already running"}
+        try:
+            ag = agents.AGENTS[aid](self.cfg["ai"])
+            r = agents.probe(ag, STATE_DIR / "ai-test")
+        finally:
+            self.test_lock.release()
+        self.eng.log.event("info", f"AI test from Settings: {ag.name} " + ("OK" if r["ok"] else "failed"),
+                           r.get("detail", "")[:300])
+        return 200, r
+
     def do_settings_probe(self, body):
         url = S._url(body.get("url"), "URL")
         via = (body.get("via") or "").strip()
@@ -253,7 +288,8 @@ class App:
                         "checking": eng.updater.running.locked(), "progress": eng.updater.progress_view()},
             "system": self.metrics.snapshot(),
             "reboot": eng.reboot_info(),
-            "ai": {"enabled": ai.enabled, "current": ai.current, "queued": ai.q.qsize(), "jobs": ai.list(15)},
+            "ai": {"enabled": ai.enabled, "current": ai.current, "queued": ai.q.qsize(), "jobs": ai.list(15),
+                   "agent": ai.agent.id, "agent_name": ai.agent.name, "access": ai.agent.access},
             "actions": self.actions.list()[:10],
             "events": list(eng.log.recent)[-60:][::-1],
             "push": eng.log.last_push,
@@ -507,6 +543,8 @@ def make_handler(app):
                     return self._send(200, app.settings_view())
                 if path == "/api/settings/github":
                     return self._send(200, app.github_view())
+                if path == "/api/settings/ai":
+                    return self._send(200, S.ai_view(app.cfg, app.eng.ai))
                 if path == "/api/settings/logs":
                     return self._send(200, S.logs_view(app.eng.log.dir))
                 if path == "/api/settings/logs/download":
@@ -544,7 +582,9 @@ def make_handler(app):
                           "/api/settings/github": app.do_github_save,
                           "/api/settings/github/key": app.do_github_key,
                           "/api/settings/github/test": app.do_github_test,
-                          "/api/settings/github/push": app.do_github_push}.get(path)
+                          "/api/settings/github/push": app.do_github_push,
+                          "/api/settings/ai": app.do_ai_save,
+                          "/api/settings/ai/test": app.do_ai_test}.get(path)
                     if not fn:
                         return self._send(404, {"error": "not found"})
                     r = fn(body)

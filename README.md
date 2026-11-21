@@ -1,7 +1,7 @@
 # Arrgus
 
 An AI monitor for a Docker host. It watches containers, a VPN namespace, drives and the network; fixes known
-problems with scripted playbooks; hands anything new (or any fix that fails) to Claude Opus running headless;
+problems with scripted playbooks; hands anything new (or any fix that fails) to an AI agent (Claude Code, OpenAI Codex or Google Gemini) running headless;
 reports image updates and applies them only after the owner approves; and logs every issue, fix, update and AI
 session to a private GitHub repo. The web dashboard sits behind your existing reverse proxy.
 
@@ -14,7 +14,8 @@ The code is generic. Everything about a particular box lives in `config/<box>.to
 | `core/checks.py` | Health checks: containers, VPN namespace + egress leak, HTTP probes, mounts, bind visibility, disk, DNS/internet/Tailscale, system |
 | `core/fixes.py` | Playbook fixes: compose up, restart, VPN restart and re-attach, mount and restart, systemctl |
 | `core/engine.py` | Check → confirm (15s) → fix → verify → escalate loop; post-reboot sequence; Docker event watcher |
-| `core/ai.py` | Queued headless `claude -p` sessions (one at a time), transcripts, result parsing |
+| `core/ai.py` | Queued headless AI sessions (one at a time), transcripts, follow-ups, result parsing |
+| `core/agents.py` | The AI agents: Claude Code, OpenAI Codex, Google Gemini (command lines, output parsing, Test) |
 | `core/updates.py` | Registry digest checks, apt check, approved apply with health check and rollback |
 | `core/settings.py` | Settings page: overlay file, live re-apply, password + sessions, Services view and validation |
 | `core/catalog.py` | Known apps (Plex, Jellyfin, the *arrs, download clients…) used to suggest health checks, links and icons |
@@ -38,29 +39,40 @@ The code is generic. Everything about a particular box lives in `config/<box>.to
 6. Set up the AI (below), or set `ai.enabled = false` to run without it.
 
 ## Setting up the AI
-Arrgus has no AI of its own. It runs [Claude Code](https://docs.claude.com/en/docs/claude-code) headless
-(`claude -p`) as the same Linux user the service runs as, so that user's Claude Code sign-in is what pays for it.
+Arrgus has no AI of its own. It runs an AI coding agent headless on the box, as the same Linux user the service
+runs as, so that user's sign-in is what pays for it. Choose the agent on **Settings → AI**:
 
-1. Install Claude Code for that user. The config expects it at `~/.local/bin/claude` (`ai.claude_bin`).
-2. Sign it in, one of two ways:
-   - **Claude subscription:** run `claude` once as that user and sign in. Every AI session counts against that
-     plan's usage, and the plan must include the model in `ai.model` (default: Opus).
-   - **API key (pay per use):** put the key in Arrgus's secrets file, which the systemd unit loads:
-     ```sh
-     mkdir -p ~/.config/arrgus
-     install -m 600 /dev/null ~/.config/arrgus/env
-     echo 'ANTHROPIC_API_KEY=sk-ant-...' >> ~/.config/arrgus/env
-     systemctl --user restart arrgus
-     ```
-     Every value in that file is scrubbed from the published log, as is anything that looks like an Anthropic key.
-3. Test it with **Ask AI** on the dashboard. If Claude Code is missing or signed out, AI sessions fail and show the
-   error on the dashboard; monitoring and playbook fixes keep working.
+| Agent | Account | Install (as the Arrgus user) | Sign in |
+|---|---|---|---|
+| **Claude Code** (default) | Claude subscription or Anthropic API key | `curl -fsSL https://claude.ai/install.sh \| bash` | run `claude` once and sign in |
+| **OpenAI Codex** | ChatGPT plan or OpenAI API key | `npm install -g @openai/codex` | `codex login` → Sign in with ChatGPT |
+| **Google Gemini** | Google account or Gemini API key | `npm install -g @google/gemini-cli` (Node.js 20+) | run `gemini` once → Login with Google |
 
-**What the AI is allowed to do.** By default (`ai.permission_mode = "bypassPermissions"`) the AI can run any
-command as the service user, plus whatever `deploy/sudoers.example` allows. That is what lets it actually fix
-things, but it is full control of the account. For a stricter setup, set `permission_mode` to another Claude Code
-permission mode and list what it may use in `ai.allowed_tools`. Usage is capped by `cooldown`,
-`max_runs_per_incident` and `max_auto_runs_per_day`.
+Then press **Test** on the AI tab: it sends a one-word, read-only prompt to confirm the agent is installed and
+signed in. Each agent reads the box briefing from its own file in `workspace/` (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`).
+
+**API keys instead of a subscription** go in Arrgus's secrets file, which the systemd unit loads:
+```sh
+mkdir -p ~/.config/arrgus
+install -m 600 /dev/null ~/.config/arrgus/env
+echo 'ANTHROPIC_API_KEY=sk-ant-...' >> ~/.config/arrgus/env   # or OPENAI_API_KEY=... / GEMINI_API_KEY=...
+systemctl --user restart arrgus
+```
+Every value in that file is scrubbed from the published log, as is anything that looks like an Anthropic, OpenAI
+or Google API key.
+
+**What the AI may do** (`ai.access`, also on the AI tab):
+- `"full"` (*Fix things*, default): the agent can run any command as the service user, plus whatever
+  `deploy/sudoers.example` allows, then verifies its fix. Claude runs with `--dangerously-skip-permissions`, Codex
+  with `--dangerously-bypass-approvals-and-sandbox`, Gemini with `--yolo`.
+- `"read_only"` (*Investigate only*): it investigates and explains, and puts the exact fix in `owner_action` for
+  you to apply. Claude runs in plan mode, Codex in its read-only sandbox, Gemini without auto-approval.
+- Claude only: leave `access` unset and set `permission_mode` / `allowed_tools` for a custom Claude permission setup.
+
+Usage is capped by `cooldown`, `max_runs_per_incident` and `max_auto_runs_per_day`; turn off
+`auto_escalate` to run the AI only when you ask. Follow-up questions resume Claude's own session; with Codex and
+Gemini the earlier turns are sent with the question. If an agent is missing or signed out, its sessions fail with
+the install or sign-in step to take; monitoring and playbook fixes keep working.
 
 Without the AI (`ai.enabled = false`), checks, playbook fixes, update approvals, the log and the dashboard all
 still work; Ask AI, Report issue and automatic escalation are turned off.
@@ -80,6 +92,8 @@ troubleshoots and fixes) · pending updates with Approve buttons · live AI tran
 - **Logs & GitHub:** download the whole log as a zip (optionally with the box backups), or one month as Markdown
   or JSON Lines. Connect a GitHub repo for off-box copies: create a deploy key, enter `owner/repo`, test read and
   write access, turn pushing on or off, or push now. A repo that fails the test is never saved.
+- **AI:** choose Claude Code, OpenAI Codex (ChatGPT) or Google Gemini, its model, whether it may fix things or only
+  investigate, and whether unsolved problems go to it automatically. **Test** checks it's installed and signed in.
 - **Password:** change the Settings password.
 
 Changes are saved to `config/<box>.settings.json`, which overrides the same keys in the TOML (the TOML itself is

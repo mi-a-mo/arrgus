@@ -159,6 +159,7 @@ function progressHtml(p) {
     ${!p.active ? `<div style="text-align:right;margin-top:10px"><button class="btn small" data-dismiss="${esc(p.finished)}">Dismiss</button></div>` : ""}</div>`;
 }
 
+const aiName = () => S?.ai?.agent_name || "The AI";
 function toast(msg) { const t = $("toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 3500); }
 
 async function api(path, body) {
@@ -395,8 +396,8 @@ function closeModal() { modal.classList.remove("open"); clearTimeout(jobTimer); 
 function openForm(kind) {
   const ask = kind === "ask";
   $("modal-body").innerHTML = `<h3>${ask ? "Ask AI" : "Report an issue"}</h3>
-    <p class="hint">${ask ? "Opus investigates the live system and answers. It only changes things if you ask it to."
-                          : "Describe what's wrong. Opus troubleshoots the live system, fixes it, verifies, and logs everything."}</p>
+    <p class="hint">${ask ? `${aiName()} investigates the live system and answers. It only changes things if you ask it to.`
+                          : `Describe what's wrong. ${aiName()} troubleshoots the live system${S?.ai?.access === "read_only" ? ", explains the fix (it's set to investigate only)" : ", fixes it, verifies"}, and logs everything.`}</p>
     <textarea id="ai-text" placeholder="${ask ? "e.g. Why did Radarr stop importing yesterday?" : "e.g. Movies have buffered on every 4K file since last night"}"></textarea>
     <div class="modal-foot"><button class="btn" id="ai-cancel">Cancel</button><button class="btn primary" id="ai-go">${ask ? "Ask" : "Troubleshoot & fix"}</button></div>`;
   modal.classList.add("open");
@@ -500,7 +501,7 @@ async function pollJob(id) {
   // The reply box is always there; only Send waits for the AI to finish.
   fuTarget = th.can_follow_up ? last.id : null;
   $("fu-go").disabled = !th.can_follow_up;
-  $("fu-note").textContent = th.can_follow_up ? "" : live ? "Opus is still replying. You can type now and send when it finishes." : (th.follow_up_error || "");
+  $("fu-note").textContent = th.can_follow_up ? "" : live ? `${aiName()} is still replying. You can type now and send when it finishes.` : (th.follow_up_error || "");
   jobTimer = setTimeout(() => pollJob(id), live ? 2000 : 8000);
 }
 

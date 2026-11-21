@@ -51,6 +51,15 @@
   .hintline { font-size: 12.5px; color: var(--muted); }
   .hintline button { all: unset; cursor: pointer; color: var(--info); text-decoration: underline; }
   .xl { display: grid; grid-template-columns: 1fr 1.6fr 1.4fr auto; gap: 8px; align-items: center; margin-top: 8px; }
+  .agents { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin: 4px 0 14px; }
+  .agent { position: relative; display: block; border: 1px solid var(--line-hi); background: var(--card2); padding: 12px 14px; cursor: pointer; }
+  .agent input { position: absolute; opacity: 0; pointer-events: none; }
+  .agent:has(input:checked) { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent), 0 0 18px #d9b45a22; }
+  .agent:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .agent .an { font-weight: 600; font-size: 15px; } .agent .av { color: var(--muted); font-size: 13px; }
+  .choice { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+  pre.cmd { background: var(--bg0); border: 1px solid var(--line); padding: 8px 10px; margin: 4px 0 0; white-space: pre-wrap;
+            word-break: break-word; font: 12.5px/1.45 var(--mono); color: #e3c88f; }
   .savebar { position: sticky; bottom: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 10px;
              background: var(--card2); border: 1px solid #d9b45a66; padding: 10px 14px; margin-top: 16px; box-shadow: 0 -8px 24px #000a; }
   .savebar[hidden] { display: none; }
@@ -89,6 +98,7 @@
   <div id="app" hidden>
     <div class="tabs" role="tablist">
       <button class="btn" role="tab" data-tab="services" aria-selected="true">Services</button>
+      <button class="btn" role="tab" data-tab="ai" aria-selected="false">AI</button>
       <button class="btn" role="tab" data-tab="logs" aria-selected="false">Logs &amp; GitHub</button>
       <button class="btn" role="tab" data-tab="security" aria-selected="false">Password</button>
     </div>
@@ -115,6 +125,15 @@
       <div class="savebar" id="savebar" hidden>
         <span id="save-msg">Unsaved changes</span>
         <span class="buttons"><button class="btn" id="b-discard">Discard</button><button class="btn primary" id="b-save">Save</button></span>
+      </div>
+    </section>
+
+    <section id="tab-ai" hidden>
+      <div class="card">
+        <h2>AI agent</h2>
+        <p class="lead">When Arrgus finds a problem its scripted fixes can't solve, or you use Ask AI / Report issue, it
+          hands the job to an AI coding agent running on this server. Pick the one you have an account for.</p>
+        <div id="ai"><div class="empty">Loading…</div></div>
       </div>
     </section>
 
@@ -198,8 +217,9 @@ $("b-logout").onclick = async () => { await api("/api/settings/logout", {}); sho
 // ---- tabs --------------------------------------------------------------------------------------
 document.querySelectorAll("[data-tab]").forEach((b) => b.onclick = () => {
   document.querySelectorAll("[data-tab]").forEach((x) => x.setAttribute("aria-selected", x === b));
-  ["services", "logs", "security"].forEach((t) => $("tab-" + t).hidden = t !== b.dataset.tab);
+  ["services", "ai", "logs", "security"].forEach((t) => $("tab-" + t).hidden = t !== b.dataset.tab);
   if (b.dataset.tab === "logs") loadLogs();
+  if (b.dataset.tab === "ai") loadAI();
 });
 
 // ---- services ----------------------------------------------------------------------------------
@@ -316,6 +336,82 @@ $("b-save").onclick = async () => {
   } catch (err) { $("save-msg").textContent = err.message; $("save-msg").className = "err"; $("savebar").hidden = false; }
   b.disabled = false;
 };
+// ---- AI agent ---------------------------------------------------------------------------------
+let AI = null, aiForm = null;
+async function loadAI() {
+  try { AI = await api("/api/settings/ai"); }
+  catch (e) { $("ai").innerHTML = `<div class="err">${esc(e.message)}</div>`; return; }
+  aiForm = {agent: AI.agent, access: AI.access, enabled: AI.enabled, auto_escalate: AI.auto_escalate,
+            agents: Object.fromEntries(AI.agents.map((a) => [a.id, {model: a.model || "", bin: ""}]))};
+  renderAI();
+}
+function renderAI() {
+  const sel = AI.agents.find((a) => a.id === aiForm.agent), f = aiForm.agents[sel.id];
+  const forWho = {claude: "Claude subscription or Anthropic API key", codex: "ChatGPT plan or OpenAI API key",
+                  gemini: "Google account or Gemini API key"};
+  $("ai").innerHTML = `
+    <label class="tg"><input type="checkbox" id="ai-on" ${aiForm.enabled ? "checked" : ""}> Use AI</label>
+    <div id="ai-body" ${aiForm.enabled ? "" : "hidden"}>
+    <div class="agents" role="radiogroup" aria-label="AI agent" style="margin-top:12px">
+      ${AI.agents.map((a) => `<label class="agent"><input type="radio" name="agent" value="${a.id}" ${a.id === aiForm.agent ? "checked" : ""}>
+        <div class="an">${esc(a.name)}</div><div class="av">${esc(forWho[a.id] || a.vendor)}</div>
+        <div style="margin-top:6px">${a.installed ? `<span class="chip ok">installed</span>` : `<span class="chip">not installed</span>`}
+          ${a.id === AI.agent ? `<span class="chip info">in use</span>` : ""}</div></label>`).join("")}
+    </div>
+
+    <div class="sec">${esc(sel.name)}</div>
+    ${sel.installed ? `<p class="hintline" style="margin:6px 0">Installed at <code>${esc(sel.bin)}</code>${sel.version ? ` · ${esc(sel.version)}` : ""}.</p>`
+      : `<p class="hintline" style="margin:6px 0">Not installed on this server yet. As user <code>${esc(AI.user)}</code>, run:</p>
+         <pre class="cmd">${esc(sel.install)}</pre>`}
+    <p class="hintline" style="margin:8px 0 0"><b>Sign in:</b> ${esc(sel.signin).replace(/`([^`]+)`/g, "<code>$1</code>")}</p>
+    <label class="f" for="ai-model">Model ${sel.default_model ? `(default ${esc(sel.default_model)})` : "(blank = the CLI's default)"}</label>
+    <input type="text" id="ai-model" value="${esc(f.model)}" placeholder="${esc(sel.default_model || "default")}" spellcheck="false" autocapitalize="off">
+    <details style="margin-top:8px"><summary class="hintline" style="cursor:pointer">Program location</summary>
+      <label class="f" for="ai-bin">Full path to <code>${esc(sel.bin.split("/").pop())}</code> (blank = find it automatically)</label>
+      <input type="text" id="ai-bin" value="${esc(f.bin)}" placeholder="${esc(sel.bin)}" spellcheck="false" autocapitalize="off"></details>
+    <div style="margin-top:10px"><button class="btn small" id="ai-test" ${sel.installed ? "" : "disabled"}>Test ${esc(sel.name)}</button>
+      <span class="probe" id="ai-probe"></span></div>
+    <p class="hintline" style="margin-top:4px">Sends a one-word, read-only prompt to check it's installed and signed in. Uses a tiny amount of your plan.</p>
+
+    <div class="sec" style="margin-top:16px">What the AI may do</div>
+    <div class="choice" role="radiogroup" aria-label="AI access">
+      <label class="tg"><input type="radio" name="access" value="full" ${aiForm.access === "full" ? "checked" : ""}> Fix things (full access)</label>
+      <label class="tg"><input type="radio" name="access" value="read_only" ${aiForm.access === "read_only" ? "checked" : ""}> Investigate only (read-only)</label>
+      ${AI.access === "custom" ? `<label class="tg"><input type="radio" name="access" value="custom" ${aiForm.access === "custom" ? "checked" : ""}> As set in the config file</label>` : ""}
+    </div>
+    <p class="hintline" style="margin-top:6px">${aiForm.access === "read_only"
+      ? "The AI looks around and explains, and tells you the exact fix to apply yourself. It changes nothing."
+      : aiForm.access === "full" ? "The AI can run any command as the Arrgus user to fix problems, then checks its fix worked."
+      : "Uses the Claude permission mode from the config file."}</p>
+    <label class="tg" style="margin-top:12px"><input type="checkbox" id="ai-auto" ${aiForm.auto_escalate ? "checked" : ""}> Hand unsolved problems to the AI automatically</label>
+    <p class="hintline" style="margin-top:6px">Off: the AI only runs when you use Ask AI or Report issue on the dashboard.</p>
+    </div>
+    <div class="err" id="ai-err"></div>
+    <div class="buttons" style="margin-top:12px"><button class="btn primary" id="ai-save">Save</button></div>
+    ${AI.busy ? `<p class="hintline">An AI session is running now; a change applies from the next session.</p>` : ""}`;
+  $("ai-on").onchange = (e) => { aiForm.enabled = e.target.checked; renderAI(); };
+  document.querySelectorAll("input[name=agent]").forEach((r) => r.onchange = () => { aiForm.agent = r.value; renderAI(); });
+  document.querySelectorAll("input[name=access]").forEach((r) => r.onchange = () => { aiForm.access = r.value; renderAI(); });
+  $("ai-auto").onchange = (e) => aiForm.auto_escalate = e.target.checked;
+  $("ai-model").oninput = (e) => f.model = e.target.value.trim();
+  $("ai-bin").oninput = (e) => f.bin = e.target.value.trim();
+  $("ai-test").onclick = async (e) => {
+    const out = $("ai-probe"); e.target.disabled = true; out.className = "probe"; out.textContent = "Testing… (up to 2 minutes)";
+    try { const r = await api("/api/settings/ai/test", {agent: sel.id});
+          out.className = "probe " + (r.ok ? "ok" : "fail");
+          out.textContent = r.ok ? "✓ " + r.detail : "✗ " + r.detail + (r.fix ? " — " + r.fix : ""); }
+    catch (err) { out.className = "probe fail"; out.textContent = "✗ " + err.message; }
+    e.target.disabled = false;
+  };
+  $("ai-save").onclick = async (e) => {
+    const chosen = AI.agents.find((a) => a.id === aiForm.agent);
+    if (aiForm.enabled && !chosen.installed && !confirm(`${chosen.name} isn't installed on this server yet, so AI sessions will fail until it is. Save anyway?`)) return;
+    e.target.disabled = true; $("ai-err").textContent = "";
+    try { const r = await api("/api/settings/ai", aiForm); AI = r.ai; toast("AI settings saved."); await loadAI(); }
+    catch (err) { $("ai-err").textContent = err.message; e.target.disabled = false; }
+  };
+}
+
 // ---- logs + GitHub ----------------------------------------------------------------------------
 const kb = (n) => n < 1024 ? `${n} B` : n < 1048576 ? `${(n / 1024).toFixed(n < 10240 ? 1 : 0)} KB` : `${(n / 1048576).toFixed(1)} MB`;
 const when = (iso) => iso ? new Date(iso).toLocaleString([], {dateStyle: "medium", timeStyle: "short"}) : "never";

@@ -410,3 +410,50 @@ def log_file(log_dir, month, fmt):
     if not p.exists():
         raise FileNotFoundError(month)
     return p.read_bytes()
+
+
+# ---- AI agent -------------------------------------------------------------------------------------
+_MODEL = re.compile(r"^[A-Za-z0-9._:/@-]{0,80}$")
+
+
+def ai_view(cfg, runner):
+    from . import agents
+    ai = cfg.get("ai", {})
+    cur = agents.current(ai)
+    rows = []
+    for aid, cls in agents.AGENTS.items():
+        ag = cls(ai)
+        rows.append({"id": aid, "name": ag.name, "vendor": ag.vendor, "installed": ag.installed(), "bin": ag.bin,
+                     "version": agents.version(ag), "model": ag.conf.get("model", ""), "default_model": ag.default_model,
+                     "install": ag.install, "signin": ag.signin, "context_file": ag.context_file})
+    return {"enabled": ai.get("enabled", True), "auto_escalate": ai.get("auto_escalate", True),
+            "agent": cur.id, "access": agents.access_of(ai), "agents": rows, "busy": runner.busy(),
+            "user": os.environ.get("USER", "")}
+
+
+def build_ai_overlay(body, cfg):
+    from . import agents
+    agent = body.get("agent")
+    if agent not in agents.AGENTS:
+        raise ValueError("choose Claude Code, OpenAI Codex or Google Gemini")
+    out = {"agent": agent, "enabled": bool(body.get("enabled", True)), "auto_escalate": bool(body.get("auto_escalate", True))}
+    access = body.get("access")
+    if access in ("full", "read_only"):
+        out["access"] = access
+    elif access != "custom":
+        raise ValueError("choose what the AI may do")
+    for aid, cls in agents.AGENTS.items():
+        conf = (body.get("agents") or {}).get(aid) or {}
+        sec = {}
+        model = (conf.get("model") or "").strip()
+        if not _MODEL.match(model):
+            raise ValueError(f"{cls.name} model: letters, digits and . _ : / @ - only")
+        sec["model"] = model or cls.default_model
+        b = (conf.get("bin") or "").strip()
+        if b:
+            p = Path(os.path.expanduser(b))
+            if not p.is_absolute() or p.name != Path(cls.default_bin).name or not (p.is_file() and os.access(p, os.X_OK)):
+                raise ValueError(f"{cls.name} program: give the full path to an existing `{Path(cls.default_bin).name}` program")
+            sec["bin"] = str(p)
+        out[aid] = sec
+    return {"ai": out}

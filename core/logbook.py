@@ -48,7 +48,9 @@ class Scrubber:
                     if len(v) >= 4:
                         self.literals.add(v)
         self.rules = [
-            (re.compile(r"\bsk-ant-[A-Za-z0-9_-]{8,}"), "<redacted>"),
+            (re.compile(r"\bsk-ant-[A-Za-z0-9_-]{8,}"), "<redacted>"),                 # Anthropic
+            (re.compile(r"\bsk-(?:proj-|svcacct-|admin-)?[A-Za-z0-9_-]{20,}"), "<redacted>"),  # OpenAI
+            (re.compile(r"\bAIza[0-9A-Za-z_-]{35}\b"), "<redacted>"),                 # Google / Gemini
             (re.compile(r"(?i)\b(password|passwd|pwd|token|api[_-]?key|apikey|secret)(\"?'?\s*[:=]\s*\"?'?)([^\s\"'&<,;]+)"),
              r"\1\2<redacted>"),
             (re.compile(r"(?i)<(ApiKey)>[^<]+</ApiKey>"), r"<\1><redacted></\1>"),
