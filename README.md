@@ -33,6 +33,35 @@ The code is generic. Everything about a particular box lives in `config/<box>.to
 4. Point the reverse proxy at `web.listen:web.port` and add the header from `deploy/Caddyfile.snippet`
    (`state/proxy_secret` is created on first start).
 5. Optional: install `deploy/sudoers.example` so mount/systemctl/apt fixes can run.
+6. Set up the AI (below), or set `ai.enabled = false` to run without it.
+
+## Setting up the AI
+Arrgus has no AI of its own. It runs [Claude Code](https://docs.claude.com/en/docs/claude-code) headless
+(`claude -p`) as the same Linux user the service runs as, so that user's Claude Code sign-in is what pays for it.
+
+1. Install Claude Code for that user. The config expects it at `~/.local/bin/claude` (`ai.claude_bin`).
+2. Sign it in, one of two ways:
+   - **Claude subscription:** run `claude` once as that user and sign in. Every AI session counts against that
+     plan's usage, and the plan must include the model in `ai.model` (default: Opus).
+   - **API key (pay per use):** put the key in Arrgus's secrets file, which the systemd unit loads:
+     ```sh
+     mkdir -p ~/.config/arrgus
+     install -m 600 /dev/null ~/.config/arrgus/env
+     echo 'ANTHROPIC_API_KEY=sk-ant-...' >> ~/.config/arrgus/env
+     systemctl --user restart arrgus
+     ```
+     Every value in that file is scrubbed from the published log, as is anything that looks like an Anthropic key.
+3. Test it with **Ask AI** on the dashboard. If Claude Code is missing or signed out, AI sessions fail and show the
+   error on the dashboard; monitoring and playbook fixes keep working.
+
+**What the AI is allowed to do.** By default (`ai.permission_mode = "bypassPermissions"`) the AI can run any
+command as the service user, plus whatever `deploy/sudoers.example` allows. That is what lets it actually fix
+things, but it is full control of the account. For a stricter setup, set `permission_mode` to another Claude Code
+permission mode and list what it may use in `ai.allowed_tools`. Usage is capped by `cooldown`,
+`max_runs_per_incident` and `max_auto_runs_per_day`.
+
+Without the AI (`ai.enabled = false`), checks, playbook fixes, update approvals, the log and the dashboard all
+still work; Ask AI, Report issue and automatic escalation are turned off.
 
 ## Dashboard
 Status · System check (full check with auto-fix) · Version check (forced) · Ask AI · Report issue (AI

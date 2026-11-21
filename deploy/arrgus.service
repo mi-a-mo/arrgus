@@ -11,6 +11,9 @@ Type=simple
 Environment=ARRGUS_CONFIG=@CONFIG@
 Environment=PYTHONUNBUFFERED=1
 Environment=PATH=@HOME@/.local/bin:/usr/local/bin:/usr/bin:/bin
+# Optional secrets (e.g. ANTHROPIC_API_KEY=...), one KEY=value per line. Keep it chmod 600.
+# The leading "-" means the service still starts when the file doesn't exist. Values are scrubbed from the log.
+EnvironmentFile=-@HOME@/.config/arrgus/env
 WorkingDirectory=@ROOT@
 ExecStart=/usr/bin/python3 @ROOT@/arrgus.py serve
 Restart=always

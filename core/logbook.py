@@ -21,6 +21,8 @@ LABELS = {
     "info": "ℹ️ INFO",
 }
 
+SECRETS_FILE = Path.home() / ".config" / "arrgus" / "env"  # same path as EnvironmentFile in deploy/arrgus.service
+
 PRIVATE_NETS = [ipaddress.ip_network(n) for n in
                 ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "127.0.0.0/8", "0.0.0.0/32")]
 
@@ -38,7 +40,15 @@ class Scrubber:
                     v = v.strip().strip("'\"")
                     if re.search(r"PASS|TOKEN|KEY|SECRET|USER", k, re.I) and len(v) >= 4:
                         self.literals.add(v)
+        # Arrgus's own secrets file (loaded by the systemd unit): every value is secret.
+        if SECRETS_FILE.exists():
+            for line in SECRETS_FILE.read_text().splitlines():
+                if "=" in line and not line.lstrip().startswith("#"):
+                    v = line.split("=", 1)[1].strip().strip("'\"")
+                    if len(v) >= 4:
+                        self.literals.add(v)
         self.rules = [
+            (re.compile(r"\bsk-ant-[A-Za-z0-9_-]{8,}"), "<redacted>"),
             (re.compile(r"(?i)\b(password|passwd|pwd|token|api[_-]?key|apikey|secret)(\"?'?\s*[:=]\s*\"?'?)([^\s\"'&<,;]+)"),
              r"\1\2<redacted>"),
             (re.compile(r"(?i)<(ApiKey)>[^<]+</ApiKey>"), r"<\1><redacted></\1>"),
