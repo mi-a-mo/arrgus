@@ -83,6 +83,11 @@ class Logbook:
         self.remote = gh.get("remote", "")
         self.key = os.path.expanduser(gh.get("ssh_key", "")) if gh.get("ssh_key") else ""
         self.backup_files = [Path(os.path.expanduser(f)) for f in gh.get("backup_files", [])]
+        if cfg.get("_path"):  # always back up the Settings page's overlay alongside the TOML
+            from .settings import overlay_path
+            ov = overlay_path(cfg["_path"])
+            if ov not in self.backup_files:
+                self.backup_files.append(ov)
         self.scrub = Scrubber(cfg)
         self.lock = threading.RLock()
         self.dirty = False
@@ -174,6 +179,8 @@ class Logbook:
     def _sync_backups(self):
         """Copy the configured box files into box/ verbatim (not scrubbed) when they change."""
         for src in self.backup_files:
+            if src.name.endswith(".settings.json") and not src.exists():
+                continue  # no settings saved from the dashboard yet
             try:
                 data = src.read_bytes()
             except OSError as e:

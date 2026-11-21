@@ -6,6 +6,7 @@ state/
 # Box-specific / generated: kept on the box, not published
 config/*.toml
 !config/example.toml
+config/*.settings.json
 box-notes.md
 HANDOFF.md
 workspace/

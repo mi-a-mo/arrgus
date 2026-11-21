@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Settings · {{TITLE}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/theme.css?v={{UI}}">
+<style>
+  [hidden] { display: none !important; }
+  .wrap { max-width: 920px; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 22px; flex-wrap: wrap; }
+  .topbar .brandline { display: flex; align-items: center; gap: 12px; text-decoration: none; color: inherit; }
+  .topbar .emblem { width: 44px; height: 44px; }
+  .topbar h1.wordmark { font-size: 24px; margin: 0; letter-spacing: .24em; }
+  .topbar .page { font: 600 15px/1 var(--display); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin-left: 4px; }
+  .tabs { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+  .tabs .btn[aria-selected="true"] { border-color: var(--accent); color: var(--accent-hi); box-shadow: inset 0 -2px 0 var(--accent); }
+  .lead { color: var(--muted); margin: -4px 0 14px; }
+  .auth { max-width: 420px; margin: 40px auto; }
+  label.f { display: block; font-size: 13px; color: var(--muted); margin: 10px 0 4px; }
+  input[type=text], input[type=password], input[type=url], select {
+    width: 100%; background: var(--bg0); color: var(--text); border: 1px solid var(--line-hi); border-radius: 0;
+    padding: 8px 10px; font: inherit; font-size: 14px; min-width: 0; }
+  input:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px #d9b45a22; }
+  input:disabled, select:disabled { opacity: .5; }
+  .err { color: var(--fail); font-size: 13.5px; margin-top: 8px; min-height: 1em; }
+  .svc { border-top: 1px solid #ffffff12; padding: 14px 0; }
+  .svc:first-child { border-top: 0; padding-top: 2px; }
+  .svc-h { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .svc-h img, .svc-h .noicon { width: 30px; height: 30px; object-fit: contain; flex: none; }
+  .svc-h .noicon { border: 1px solid var(--line-hi); display: grid; place-items: center; color: var(--muted); font: 600 13px var(--display); }
+  .svc-h .who { flex: 1; min-width: 160px; }
+  .svc-h .who .n { font-weight: 600; font-size: 15px; }
+  .svc-h .who .i { color: var(--muted); font-size: 12.5px; overflow-wrap: anywhere; }
+  .toggles { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tg { display: inline-flex; align-items: center; gap: 7px; padding: 6px 10px; border: 1px solid var(--line-hi); background: var(--card2);
+        cursor: pointer; font-size: 13px; user-select: none; }
+  .tg input { accent-color: var(--accent); width: 15px; height: 15px; margin: 0; }
+  .tg:has(input:checked) { border-color: #d9b45a99; color: var(--accent-hi); }
+  .tg:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .detail { margin: 10px 0 0 42px; display: grid; gap: 8px; }
+  .detail .line { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: end; }
+  .detail .line3 { display: grid; grid-template-columns: 160px 1fr; gap: 8px; }
+  .detail .sec { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--accent); margin-top: 4px; }
+  .probe { font-size: 13px; color: var(--muted); }
+  .probe.ok { color: var(--ok); } .probe.fail { color: var(--fail); }
+  .hintline { font-size: 12.5px; color: var(--muted); }
+  .hintline button { all: unset; cursor: pointer; color: var(--info); text-decoration: underline; }
+  .xl { display: grid; grid-template-columns: 1fr 1.6fr 1.4fr auto; gap: 8px; align-items: center; margin-top: 8px; }
+  .savebar { position: sticky; bottom: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+             background: var(--card2); border: 1px solid #d9b45a66; padding: 10px 14px; margin-top: 16px; box-shadow: 0 -8px 24px #000a; }
+  .savebar[hidden] { display: none; }
+  .muted { color: var(--muted); }
+  code { font: 12.5px var(--mono); color: #e3c88f; }
+  @media (max-width: 640px) {
+    .detail { margin-left: 0; }
+    .detail .line3, .xl { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <a class="brandline" href="/" title="Back to the dashboard">
+      <svg class="emblem" viewBox="0 0 64 64" aria-hidden="true" fill="none">
+        <defs><radialGradient id="eg-iris" cx="45%" cy="40%" r="62%"><stop offset="0" stop-color="#3fd6c3"/><stop offset=".55" stop-color="#2a8fd0"/><stop offset="1" stop-color="#1a3f9a"/></radialGradient></defs>
+        <circle cx="32" cy="32" r="29" stroke="#d9b45a" stroke-width="1.5" opacity=".6"/>
+        <circle cx="32" cy="32" r="24.5" stroke="#2fb8a8" stroke-width="1" opacity=".5" stroke-dasharray="1.5 3.2"/>
+        <path d="M32 1.5v6M32 56.5v6M1.5 32h6M56.5 32h6" stroke="#d9b45a" stroke-width="1.6" stroke-linecap="round"/>
+        <path d="M32 3.5l2.2 6.3h-4.4zM32 60.5l-2.2-6.3h4.4z" fill="#d9b45a" opacity=".9"/>
+        <g class="lid"><path d="M13 32c5.2-8 11.6-12 19-12s13.8 4 19 12c-5.2 8-11.6 12-19 12s-13.8-4-19-12z" stroke="#d9b45a" stroke-width="2" stroke-linejoin="round" fill="#071a20"/>
+          <g class="pupil"><circle cx="32" cy="32" r="8.4" fill="#d9b45a"/><circle cx="32" cy="32" r="7" fill="url(#eg-iris)"/>
+            <circle cx="32" cy="32" r="3.1" fill="#06101f"/><circle cx="34.4" cy="29.6" r="1.4" fill="#fff6dc"/></g></g>
+      </svg>
+      <h1 class="wordmark">Arrgus</h1><span class="page">Settings</span>
+    </a>
+    <div class="buttons">
+      <a class="btn" href="/">← Dashboard</a>
+      <button class="btn" id="b-logout" hidden>Sign out</button>
+    </div>
+  </div>
+
+  <div id="auth"></div>
+
+  <div id="app" hidden>
+    <div class="tabs" role="tablist">
+      <button class="btn" role="tab" data-tab="services" aria-selected="true">Services</button>
+      <button class="btn" role="tab" data-tab="security" aria-selected="false">Password</button>
+    </div>
+
+    <section id="tab-services">
+      <div class="card">
+        <h2>Services</h2>
+        <p class="lead">Every container in your Docker Compose file. Choose what Arrgus watches, which apps get a health
+          check, and which appear as links at the top of the dashboard. New apps (Jellyfin, Lidarr…) show up here
+          automatically once they are in the compose file.</p>
+        <div id="services"><div class="empty">Loading…</div></div>
+      </div>
+      <div class="card">
+        <h2>Other links</h2>
+        <p class="lead">Links that aren't a container on this box, such as your router or another server.</p>
+        <div id="extra"></div>
+        <button class="btn small" id="b-addlink" style="margin-top:10px">+ Add link</button>
+      </div>
+      <div class="card" id="other-card" hidden>
+        <h2>Other checks</h2>
+        <p class="lead">Set in <code id="toml-name"></code> and kept as they are.</p>
+        <div id="other"></div>
+      </div>
+      <div class="savebar" id="savebar" hidden>
+        <span id="save-msg">Unsaved changes</span>
+        <span class="buttons"><button class="btn" id="b-discard">Discard</button><button class="btn primary" id="b-save">Save</button></span>
+      </div>
+    </section>
+
+    <section id="tab-security" hidden>
+      <div class="card" style="max-width:480px">
+        <h2>Change password</h2>
+        <label class="f" for="pw-cur">Current password</label><input type="password" id="pw-cur" autocomplete="current-password">
+        <label class="f" for="pw-new">New password (at least 8 characters)</label><input type="password" id="pw-new" autocomplete="new-password">
+        <label class="f" for="pw-new2">Repeat new password</label><input type="password" id="pw-new2" autocomplete="new-password">
+        <div class="err" id="pw-err"></div>
+        <button class="btn primary" id="b-pw" style="margin-top:6px">Change password</button>
+        <p class="hintline" style="margin-top:14px">Forgot it? On the server, run <code>python3 arrgus.py set-password</code> in the Arrgus folder.</p>
+      </div>
+    </section>
+  </div>
+  <div class="foot" id="foot"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const BOOT = {{BOOT_JSON}};
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function toast(msg) { const t = $("toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 4000); }
+async function api(path, body) {
+  const opt = body === undefined ? {} : {method: "POST", headers: {"X-Arrgus": "1", "Content-Type": "application/json"}, body: JSON.stringify(body)};
+  const r = await fetch(path, opt);
+  let j = {}; try { j = await r.json(); } catch {}
+  if (r.status === 401 && path !== "/api/settings/login") { showAuth(true); throw new Error(j.error || "sign in first"); }
+  if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+  return j;
+}
+$("foot").textContent = `Arrgus on ${BOOT.box} · settings are saved to ${BOOT.overlay}`;
+
+// ---- sign in / first password ----------------------------------------------------------------
+async function boot() {
+  const a = await api("/api/settings/auth");
+  if (a.signed_in) return start();
+  showAuth(a.password_set);
+}
+function showAuth(isSet) {
+  $("app").hidden = true; $("b-logout").hidden = true;
+  $("auth").innerHTML = `<div class="card auth"><h2>${isSet ? "Sign in" : "Set a settings password"}</h2>
+    <p class="lead">${isSet ? "Settings are protected by their own password." :
+      "Choose a password for the Settings page. The rest of the dashboard works without it."}</p>
+    <form id="auth-form">
+      <label class="f" for="a-pw">Password${isSet ? "" : " (at least 8 characters)"}</label>
+      <input type="password" id="a-pw" autocomplete="${isSet ? "current-password" : "new-password"}" required>
+      ${isSet ? "" : `<label class="f" for="a-pw2">Repeat password</label><input type="password" id="a-pw2" autocomplete="new-password" required>`}
+      <div class="err" id="a-err"></div>
+      <button class="btn primary" type="submit" style="margin-top:6px">${isSet ? "Sign in" : "Set password"}</button>
+    </form></div>`;
+  $("a-pw").focus();
+  $("auth-form").onsubmit = async (e) => {
+    e.preventDefault();
+    const pw = $("a-pw").value;
+    if (!isSet && pw !== $("a-pw2").value) { $("a-err").textContent = "The passwords don't match."; return; }
+    try {
+      await api(isSet ? "/api/settings/login" : "/api/settings/password", {password: pw});
+      start().catch(() => {});
+    } catch (err) { $("a-err").textContent = err.message; }
+  };
+}
+$("b-logout").onclick = async () => { await api("/api/settings/logout", {}); showAuth(true); };
+
+// ---- tabs --------------------------------------------------------------------------------------
+document.querySelectorAll("[data-tab]").forEach((b) => b.onclick = () => {
+  document.querySelectorAll("[data-tab]").forEach((x) => x.setAttribute("aria-selected", x === b));
+  ["services", "security"].forEach((t) => $("tab-" + t).hidden = t !== b.dataset.tab);
+});
+
+// ---- services ----------------------------------------------------------------------------------
+let V = null, form = null, original = "";
+async function start() {
+  $("auth").innerHTML = ""; $("app").hidden = false; $("b-logout").hidden = false;
+  try { V = await api("/api/settings"); }
+  catch (e) { $("services").innerHTML = `<div class="err">Couldn't load settings: ${esc(e.message)}</div>`; throw e; }
+  form = {
+    services: V.services.map((r) => ({service: r.service, monitor: r.monitor,
+      health: {enabled: r.health.enabled, url: r.health.url, via: r.health.via, name: r.health.name},
+      link: {enabled: r.link.enabled, name: r.link.name, url: r.link.url, icon: r.link.icon}})),
+    extra_links: V.extra_links.map((l) => ({name: l.name || "", url: l.url || "", icon: l.icon || ""})),
+  };
+  original = JSON.stringify(form);
+  $("toml-name").textContent = BOOT.toml;
+  render();
+}
+const row = (svc) => form.services.find((s) => s.service === svc);
+function viaOptions(sel) {
+  return `<option value="">this server</option>` + V.containers.map((c) =>
+    `<option value="${esc(c)}" ${c === sel ? "selected" : ""}>inside ${esc(c)}</option>`).join("");
+}
+function render() {
+  $("services").innerHTML = V.services.map((r) => {
+    const f = row(r.service), app = r.app;
+    const icon = f.link.icon || app?.icon;
+    const sug = r.suggested.url && (r.suggested.url !== f.health.url || r.suggested.via !== f.health.via)
+      ? `<div class="hintline">Suggested: <code>${esc(r.suggested.url)}</code>${r.suggested.via ? ` inside ${esc(r.suggested.via)}` : ""} · <button data-sug="${esc(r.service)}">use it</button></div>` : "";
+    return `<div class="svc" data-svc="${esc(r.service)}">
+      <div class="svc-h">
+        ${icon ? `<img src="${esc(icon)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">`
+               : `<span class="noicon">${esc((r.label[0] || "?").toUpperCase())}</span>`}
+        <div class="who"><div class="n">${esc(r.label)} <span class="chip ${r.running ? "ok" : "fail"}">${esc(r.running ? "running" : r.status)}</span></div>
+          <div class="i">${esc(r.container)} · ${esc(r.image)}${app ? "" : " · not a known app: fill in the details yourself"}</div></div>
+        <div class="toggles">
+          <label class="tg" title="Watch this container and restart it if it stops"><input type="checkbox" data-k="monitor" ${f.monitor ? "checked" : ""}> Monitor</label>
+          <label class="tg" title="Check that the app answers over HTTP"><input type="checkbox" data-k="health" ${f.health.enabled ? "checked" : ""} ${f.monitor ? "" : "disabled"}> Health check</label>
+          <label class="tg" title="Show a link at the top of the dashboard"><input type="checkbox" data-k="link" ${f.link.enabled ? "checked" : ""}> Dashboard link</label>
+        </div>
+      </div>
+      ${(f.health.enabled && f.monitor) || f.link.enabled ? `<div class="detail">
+        ${f.health.enabled && f.monitor ? `<div class="sec">Health check</div>
+          <div class="line"><div><label class="f" for="u-${esc(r.service)}">URL Arrgus requests</label>
+            <input type="url" id="u-${esc(r.service)}" data-f="health.url" value="${esc(f.health.url)}" placeholder="http://127.0.0.1:8096/health"></div>
+            <div><label class="f" for="v-${esc(r.service)}">Request from</label><select id="v-${esc(r.service)}" data-f="health.via">${viaOptions(f.health.via)}</select></div></div>
+          <div><button class="btn small" data-test="${esc(r.service)}">Test</button> <span class="probe" id="p-${esc(r.service)}"></span></div>${sug}` : ""}
+        ${f.link.enabled ? `<div class="sec">Dashboard link</div>
+          <div class="line3"><div><label class="f">Name</label><input type="text" data-f="link.name" value="${esc(f.link.name)}" maxlength="40" aria-label="${esc(r.label)} link name"></div>
+            <div><label class="f">Address people open</label><input type="url" data-f="link.url" value="${esc(f.link.url)}" aria-label="${esc(r.label)} link address" placeholder="https://${esc(app?.id || r.service)}.example.com"></div></div>
+          <div><label class="f">Icon image (https, optional)</label><input type="url" data-f="link.icon" value="${esc(f.link.icon)}" aria-label="${esc(r.label)} icon image" placeholder="https://…/icon.png"></div>` : ""}
+      </div>` : ""}
+    </div>`;
+  }).join("") || `<div class="empty">No services found in the compose file.</div>`;
+  $("extra").innerHTML = form.extra_links.map((l, i) => `<div class="xl" data-x="${i}">
+      <input type="text" data-xf="name" value="${esc(l.name)}" placeholder="Name" maxlength="40" aria-label="Link name">
+      <input type="url" data-xf="url" value="${esc(l.url)}" placeholder="https://router.example.com" aria-label="Link address">
+      <input type="url" data-xf="icon" value="${esc(l.icon)}" placeholder="Icon (https, optional)" aria-label="Icon image">
+      <button class="btn small danger" data-xdel="${i}" aria-label="Remove link">Remove</button></div>`).join("")
+    || `<div class="empty">None.</div>`;
+  $("other-card").hidden = !V.other_checks.length;
+  $("other").innerHTML = V.other_checks.map((h) => `<div class="row"><div class="pip info"></div><div class="grow">
+      <div class="name">${esc(h.name)}</div><div class="detail">${esc(h.url)}${h.via ? " · inside " + esc(h.via) : ""}${h.resolve ? " · via " + esc(h.resolve) : ""}</div></div></div>`).join("");
+  dirty();
+}
+function dirty() {
+  const changed = JSON.stringify(form) !== original;
+  $("savebar").hidden = !changed;
+  $("save-msg").textContent = "Unsaved changes"; $("save-msg").className = "";
+}
+function setPath(obj, path, val) { const [a, b] = path.split("."); b ? (obj[a][b] = val) : (obj[a] = val); }
+
+document.addEventListener("change", (e) => {
+  const s = e.target.closest("[data-svc]");
+  if (s && e.target.dataset.k) {
+    const f = row(s.dataset.svc), k = e.target.dataset.k;
+    if (k === "monitor") f.monitor = e.target.checked; else f[k].enabled = e.target.checked;
+    render(); return;
+  }
+  if (s && e.target.dataset.f === "health.via") { row(s.dataset.svc).health.via = e.target.value; dirty(); }
+});
+document.addEventListener("input", (e) => {
+  const s = e.target.closest("[data-svc]");
+  if (s && e.target.dataset.f) { setPath(row(s.dataset.svc), e.target.dataset.f, e.target.value.trim()); dirty();
+    return; }
+  const x = e.target.closest("[data-x]");
+  if (x && e.target.dataset.xf) { form.extra_links[+x.dataset.x][e.target.dataset.xf] = e.target.value.trim(); dirty(); }
+});
+document.addEventListener("click", async (e) => {
+  const sg = e.target.closest("[data-sug]");
+  if (sg) { const r = V.services.find((x) => x.service === sg.dataset.sug), f = row(r.service);
+            f.health.url = r.suggested.url; f.health.via = r.suggested.via; render(); return; }
+  const t = e.target.closest("[data-test]");
+  if (t) {
+    const f = row(t.dataset.test), out = $("p-" + t.dataset.test);
+    out.className = "probe"; out.textContent = "Testing…"; t.disabled = true;
+    try { const r = await api("/api/settings/probe", {url: f.health.url, via: f.health.via});
+          out.className = "probe " + (r.ok ? "ok" : "fail"); out.textContent = (r.ok ? "✓ Answers: " : "✗ ") + r.detail; }
+    catch (err) { out.className = "probe fail"; out.textContent = "✗ " + err.message; }
+    t.disabled = false; return;
+  }
+  const xd = e.target.closest("[data-xdel]");
+  if (xd) { form.extra_links.splice(+xd.dataset.xdel, 1); render(); return; }
+});
+$("b-addlink").onclick = () => { form.extra_links.push({name: "", url: "", icon: ""}); render();
+  $("extra").querySelector(".xl:last-child input")?.focus(); };
+$("b-discard").onclick = () => { form = JSON.parse(original); render(); };
+$("b-save").onclick = async () => {
+  const b = $("b-save"); b.disabled = true;
+  try {
+    const r = await api("/api/settings/services", form);
+    toast(r.changes.length ? "Saved: " + r.changes.join("; ") : "Saved. Nothing changed.");
+    await start();
+  } catch (err) { $("save-msg").textContent = err.message; $("save-msg").className = "err"; $("savebar").hidden = false; }
+  b.disabled = false;
+};
+// ---- password ----------------------------------------------------------------------------------
+$("b-pw").onclick = async () => {
+  const cur = $("pw-cur").value, n1 = $("pw-new").value, n2 = $("pw-new2").value;
+  $("pw-err").textContent = "";
+  if (n1 !== n2) { $("pw-err").textContent = "The new passwords don't match."; return; }
+  try { await api("/api/settings/password", {current: cur, password: n1});
+        ["pw-cur", "pw-new", "pw-new2"].forEach((id) => $(id).value = ""); toast("Password changed."); }
+  catch (err) { $("pw-err").textContent = err.message; }
+};
+window.addEventListener("beforeunload", (e) => { if (form && JSON.stringify(form) !== original) { e.preventDefault(); e.returnValue = ""; } });
+boot().catch((e) => { $("auth").innerHTML = `<div class="card auth"><h2>Settings unavailable</h2><p class="err">${esc(e.message)}</p></div>`; });
+</script>
+</body>
+</html>

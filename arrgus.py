@@ -6,6 +6,7 @@
   arrgus.py boot-dryrun      run the post-reboot sequence now, without applying fixes
   arrgus.py versions         run an image/OS update check and print what is pending
   arrgus.py publish          commit and push the log repo now
+  arrgus.py set-password     set or reset the Settings page password
 
 The box-specific config comes from ARRGUS_CONFIG or --config (default: ./config.toml).
 """
@@ -40,7 +41,21 @@ def main():
     sub.add_parser("boot-dryrun")
     sub.add_parser("versions")
     sub.add_parser("publish")
+    sub.add_parser("set-password", help="set or reset the Settings page password")
     a = ap.parse_args()
+
+    if a.cmd == "set-password":
+        import getpass
+        from core import settings
+        pw = getpass.getpass("New Settings password (at least 8 characters): ")
+        if pw != getpass.getpass("Repeat it: "):
+            sys.exit("The passwords don't match; nothing changed.")
+        try:
+            settings.set_password(pw)
+        except ValueError as e:
+            sys.exit(f"Not changed: {e}.")
+        print("Settings password set. Restart Arrgus to sign out existing sessions: systemctl --user restart arrgus")
+        return
 
     logging.basicConfig(level=logging.DEBUG if a.verbose else logging.INFO,
                         format="%(asctime)s %(levelname)s %(message)s" if sys.stderr.isatty() else "%(levelname)s %(message)s")

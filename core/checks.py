@@ -49,6 +49,11 @@ def docker_inventory():
             "image": c["Config"].get("Image"),
             "image_id": c.get("Image"),
             "binds": [(m["Source"], m["Destination"]) for m in c.get("Mounts", []) if m.get("Type") == "bind"],
+            "id": c.get("Id"),
+            "network_mode": (c.get("HostConfig") or {}).get("NetworkMode"),
+            # {"8989/tcp": [("0.0.0.0", "8989"), ...]} — only published ports
+            "ports": {k: [(b.get("HostIp", ""), b.get("HostPort", "")) for b in v]
+                      for k, v in ((c.get("NetworkSettings") or {}).get("Ports") or {}).items() if v},
         }
     return inv, None
 

@@ -16,9 +16,13 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+from http.cookies import SimpleCookie
+
+from core import settings as S
 from core.ai import strip_result
+from core.checks import docker_inventory, http_probe
 from core.metrics import Metrics
-from core.util import STATE_DIR, log, now_iso
+from core.util import STATE_DIR, load_config, log, now_iso
 
 WEB_DIR = Path(__file__).resolve().parent
 SECRET_FILE = STATE_DIR / "proxy_secret"
@@ -78,6 +82,8 @@ class App:
         self.actions = Actions()
         self.metrics = Metrics(cfg)
         self.page = None
+        self.sessions = S.Sessions()
+        self.save_lock = threading.Lock()
 
     # ---- views -------------------------------------------------------------
     def render_page(self):
@@ -85,12 +91,89 @@ class App:
         w = self.cfg["web"]
         boot = {"box": self.cfg["box"]["name"], "links": self.cfg["links"], "ui": self.ui_version(),
                 "title": w.get("title") or self.cfg["box"]["name"], "subtitle": w.get("subtitle", "")}
-        return (tpl.replace("{{TITLE}}", html.escape(boot["title"]))
+        return (tpl.replace("{{TITLE}}", html.escape(boot["title"])).replace("{{UI}}", self.ui_version())
+                   .replace("{{BOOT_JSON}}", json.dumps(boot).replace("</", "<\\/")))
+
+    def render_settings(self):
+        tpl = (WEB_DIR / "settings.html").read_text()
+        title = self.cfg["web"].get("title") or self.cfg["box"]["name"]
+        boot = {"box": self.cfg["box"]["name"], "ui": self.ui_version(),
+                "overlay": S.overlay_path(self.cfg["_path"]).name, "toml": Path(self.cfg["_path"]).name}
+        return (tpl.replace("{{TITLE}}", html.escape(title)).replace("{{UI}}", self.ui_version())
                    .replace("{{BOOT_JSON}}", json.dumps(boot).replace("</", "<\\/")))
 
     def ui_version(self):
-        """Changes whenever the dashboard or server code changes, so open tabs know to reload."""
-        return str(int(max((WEB_DIR / f).stat().st_mtime for f in ("dashboard.html", "server.py"))))
+        """Changes whenever the web UI or server code changes, so open tabs know to reload."""
+        return str(int(max((WEB_DIR / f).stat().st_mtime for f in
+                           ("dashboard.html", "settings.html", "theme.css", "server.py") if (WEB_DIR / f).exists())))
+
+    # ---- settings ----------------------------------------------------------
+    def settings_auth(self, token):
+        return {"password_set": S.password_set(), "signed_in": self.sessions.valid(token)}
+
+    def settings_view(self):
+        inv, err = docker_inventory()
+        if inv is None:
+            raise RuntimeError(f"cannot read Docker containers: {err}")
+        svcs, err = self.eng.checker.services()
+        if svcs is None:
+            raise RuntimeError(f"cannot read the compose file: {err}")
+        return S.services_view(self.cfg, inv, svcs)
+
+    def do_settings_password(self, body, token):
+        new = body.get("password") or ""
+        if S.password_set():
+            if not self.sessions.valid(token):
+                return 401, {"error": "sign in first"}
+            if not S.check_password(body.get("current") or ""):
+                return 403, {"error": "current password is wrong"}
+        S.set_password(new)  # raises ValueError for a short password
+        self.sessions.drop()
+        self.eng.log.event("info", "Settings password " + ("changed" if body.get("current") else "set"))
+        return 200, {"ok": True}, self.sessions.create()
+
+    def do_settings_login(self, body):
+        if self.sessions.throttled():
+            return 429, {"error": "too many attempts; wait a few minutes"}
+        if not S.password_set():
+            return 409, {"error": "no password set yet"}
+        if not S.check_password(body.get("password") or ""):
+            self.sessions.failed()
+            return 403, {"error": "wrong password"}
+        return 200, {"ok": True}, self.sessions.create()
+
+    def do_settings_services(self, body):
+        with self.save_lock:
+            view = self.settings_view()
+            changes = S.build_services_overlay(body, self.cfg, view)
+            before = {"links": [l["name"] for l in self.cfg["links"]],
+                      "checks": [h["name"] for h in self.cfg["checks"].get("http", [])],
+                      "ignored": list(self.cfg["checks"].get("ignore_containers", []))}
+            S.save(self.cfg, changes, load_config)
+            after = {"links": [l["name"] for l in self.cfg["links"]],
+                     "checks": [h["name"] for h in self.cfg["checks"].get("http", [])],
+                     "ignored": list(self.cfg["checks"].get("ignore_containers", []))}
+        diff = []
+        for k, label in (("links", "dashboard links"), ("checks", "health checks"), ("ignored", "ignored containers")):
+            add = [x for x in after[k] if x not in before[k]]
+            rem = [x for x in before[k] if x not in after[k]]
+            if add or rem:
+                diff.append(f"{label}: " + ", ".join([f"+{x}" for x in add] + [f"−{x}" for x in rem]))
+        self.eng.log.event("info", "Services settings saved from the dashboard",
+                           "; ".join(diff) or "no changes to links, checks or ignored containers", push=True)
+        self.eng.trigger_check("settings")
+        return 200, {"ok": True, "changes": diff}
+
+    def do_settings_probe(self, body):
+        url = S._url(body.get("url"), "URL")
+        via = (body.get("via") or "").strip()
+        if via:
+            inv, _ = docker_inventory()
+            if via not in (inv or {}):
+                return 400, {"error": f"unknown container {via!r}"}
+        code, rc, err = http_probe(url, via=via or None, timeout=8)
+        ok = 200 <= code < 500
+        return 200, {"ok": ok, "code": code, "detail": f"HTTP {code}" if code else (err[:200] or f"no response (curl {rc})")}
 
     def status(self):
         eng = self.eng
@@ -241,7 +324,7 @@ def make_handler(app):
             log.debug("web %s - %s", self.address_string(), fmt % args)
 
         # ---- plumbing -------------------------------------------------------
-        def _send(self, code, body, ctype="application/json"):
+        def _send(self, code, body, ctype="application/json", cookie=None):
             if not isinstance(body, (bytes, str)):
                 body = json.dumps(body, default=str)
             if isinstance(body, str):
@@ -253,6 +336,9 @@ def make_handler(app):
             self.send_header("X-Content-Type-Options", "nosniff")
             self.send_header("X-Frame-Options", "DENY")
             self.send_header("Referrer-Policy", "no-referrer")
+            if cookie is not None:  # settings session; "" clears it
+                self.send_header("Set-Cookie", f"arrgus_settings={cookie}; Path=/; HttpOnly; Secure; SameSite=Strict"
+                                 + ("; Max-Age=0" if not cookie else f"; Max-Age={S.SESSION_TTL}"))
             self.end_headers()
             if self.command != "HEAD":
                 self.wfile.write(body)
@@ -260,6 +346,14 @@ def make_handler(app):
         def _authorized(self):
             got = self.headers.get("X-Arrgus-Proxy", "")
             return hmac.compare_digest(got.encode(), app.secret.encode())
+
+        def _token(self):
+            c = SimpleCookie()
+            try:
+                c.load(self.headers.get("Cookie") or "")
+            except Exception:
+                return ""
+            return c["arrgus_settings"].value if "arrgus_settings" in c else ""
 
         def _body(self):
             n = int(self.headers.get("Content-Length") or 0)
@@ -283,6 +377,19 @@ def make_handler(app):
                 return self._send(403, {"error": "forbidden"})
             if path in ("/", "/index.html"):
                 return self._send(200, app.render_page(), "text/html")
+            if path == "/settings":
+                return self._send(200, app.render_settings(), "text/html")
+            if path == "/theme.css":
+                return self._send(200, (WEB_DIR / "theme.css").read_text(), "text/css")
+            if path == "/api/settings/auth":
+                return self._send(200, app.settings_auth(self._token()))
+            if path == "/api/settings":
+                if not app.sessions.valid(self._token()):
+                    return self._send(401, {"error": "sign in to Settings first"})
+                try:
+                    return self._send(200, app.settings_view())
+                except RuntimeError as e:
+                    return self._send(500, {"error": str(e)})
             if path == "/api/status":
                 return self._send(200, app.status())
             if path == "/api/ai/jobs":
@@ -331,6 +438,8 @@ def make_handler(app):
                 "/api/reboot": app.do_reboot,
                 "/api/reboot/cancel": app.do_reboot_cancel,
             }
+            if path.startswith("/api/settings/"):
+                return self._settings_post(path, body)
             fn = routes.get(path)
             if not fn:
                 return self._send(404, {"error": "not found"})
@@ -340,6 +449,31 @@ def make_handler(app):
                 log.exception("POST %s failed", path)
                 code, out = 500, {"error": str(e)}
             self._send(code, out)
+
+        def _settings_post(self, path, body):
+            tok = self._token()
+            try:
+                if path == "/api/settings/login":
+                    r = app.do_settings_login(body)
+                elif path == "/api/settings/password":
+                    r = app.do_settings_password(body, tok)
+                elif path == "/api/settings/logout":
+                    app.sessions.drop(tok)
+                    r = (200, {"ok": True}, "")
+                else:
+                    if not app.sessions.valid(tok):
+                        return self._send(401, {"error": "sign in to Settings first"})
+                    fn = {"/api/settings/services": app.do_settings_services,
+                          "/api/settings/probe": app.do_settings_probe}.get(path)
+                    if not fn:
+                        return self._send(404, {"error": "not found"})
+                    r = fn(body)
+            except ValueError as e:
+                return self._send(400, {"error": str(e)})
+            except Exception as e:
+                log.exception("POST %s failed", path)
+                return self._send(500, {"error": str(e)})
+            self._send(r[0], r[1], cookie=r[2] if len(r) > 2 else None)
 
     return Handler
 

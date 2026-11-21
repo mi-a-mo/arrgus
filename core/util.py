@@ -16,6 +16,8 @@ log = logging.getLogger("arrgus")
 def load_config(path=None):
     p = Path(path or os.environ.get("ARRGUS_CONFIG") or ROOT / "config.toml")
     cfg = tomllib.loads(p.read_text())
+    from .settings import merge, read_overlay  # settings made on the dashboard override the TOML
+    merge(cfg, read_overlay(p))
     cfg["_path"] = str(p)
     cfg.setdefault("checks", {})
     cfg.setdefault("ai", {})

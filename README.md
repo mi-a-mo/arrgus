@@ -16,9 +16,11 @@ The code is generic. Everything about a particular box lives in `config/<box>.to
 | `core/engine.py` | Check → confirm (15s) → fix → verify → escalate loop; post-reboot sequence; Docker event watcher |
 | `core/ai.py` | Queued headless `claude -p` sessions (one at a time), transcripts, result parsing |
 | `core/updates.py` | Registry digest checks, apt check, approved apply with health check and rollback |
+| `core/settings.py` | Settings page: overlay file, live re-apply, password + sessions, Services view and validation |
+| `core/catalog.py` | Known apps (Plex, Jellyfin, the *arrs, download clients…) used to suggest health checks, links and icons |
 | `core/logbook.py` | JSONL + Markdown log in a git repo, scrubbed of secrets, emails and public IPs, pushed periodically |
 | `web/` | Stdlib HTTP server + single-page dashboard |
-| `config/` | One TOML per box (`example.toml` documents every key) |
+| `config/` | One TOML per box (`example.toml` documents every key), plus `<box>.settings.json` from the Settings page |
 | `deploy/` | systemd user unit + installer, optional sudoers rule, Caddy snippet |
 | `box-notes.md` | Durable knowledge the AI reads and appends to |
 | `state/` | Runtime state (incidents, AI jobs, proxy secret). Not committed anywhere. |
@@ -65,7 +67,21 @@ still work; Ask AI, Report issue and automatic escalation are turned off.
 
 ## Dashboard
 Status · System check (full check with auto-fix) · Version check (forced) · Ask AI · Report issue (AI
-troubleshoots and fixes) · pending updates with Approve buttons · live AI transcripts · activity log.
+troubleshoots and fixes) · pending updates with Approve buttons · live AI transcripts · activity log · Settings.
+
+## Settings page
+`/settings` on the dashboard, protected by its own password (set on first visit; reset on the server with
+`python3 arrgus.py set-password`). Five wrong passwords lock sign-in for five minutes.
+
+- **Services:** every container in the compose file. For each one, choose whether Arrgus monitors it, gives it an
+  HTTP health check (with a Test button), and shows it as a dashboard link. Known apps get suggested health-check
+  URLs, link addresses and icons, so swapping Plex for Jellyfin or dropping Audiobookshelf is a few clicks.
+  Links to things that aren't containers (a router, another server) go under *Other links*.
+- **Password:** change the Settings password.
+
+Changes are saved to `config/<box>.settings.json`, which overrides the same keys in the TOML (the TOML itself is
+never rewritten), apply immediately without a restart, are recorded in the activity log, and are backed up to the
+log repo with the other box files.
 
 Access control: the server only listens on an address the proxy can reach, refuses any request without the
 proxy-injected `X-Arrgus-Proxy` secret, and requires `X-Arrgus: 1` + JSON on every POST (CSRF).
