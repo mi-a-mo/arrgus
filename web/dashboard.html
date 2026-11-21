@@ -34,10 +34,10 @@
 
   /* header */
   .brand { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-bottom: 22px; }
-  .emblem { width: 72px; height: 72px; filter: drop-shadow(0 0 16px #2fb8a840); }
-  .emblem .pupil { transform-origin: 32px 34px; animation: watch 9s ease-in-out infinite; }
+  .emblem { width: 68px; height: 68px; filter: drop-shadow(0 0 14px #2fb8a840) drop-shadow(0 0 10px #d9b45a30); }
+  .emblem .pupil { transform-origin: 32px 32px; animation: watch 9s ease-in-out infinite; }
   @keyframes watch { 0%, 38%, 100% { transform: translateX(0); } 45%, 58% { transform: translateX(-3px); } 66%, 80% { transform: translateX(3px); } }
-  .emblem .lid { transform-origin: 32px 34px; animation: blink 7s infinite; }
+  .emblem .lid { transform-origin: 32px 32px; animation: blink 7s infinite; }
   @keyframes blink { 0%, 96%, 100% { transform: scaleY(1); } 98% { transform: scaleY(.1); } }
   .motto { font: italic 12px/1.2 var(--display); color: var(--muted); letter-spacing: .08em; margin-top: -2px; }
   .wordmark { font: 700 13px/1 var(--display); letter-spacing: .42em; color: var(--accent-hi); text-transform: uppercase; padding-left: .42em; }
@@ -191,22 +191,21 @@
 <body>
 <div class="wrap">
   <header class="brand">
-    <svg class="emblem" viewBox="0 0 64 64" role="img" aria-label="Arrgus: a peacock-feather eye">
+    <svg class="emblem" viewBox="0 0 64 64" role="img" aria-label="Arrgus: an all-seeing eye in a compass ring" fill="none">
       <defs>
-        <radialGradient id="eg-teal" cx="50%" cy="58%" r="55%"><stop offset="0" stop-color="#3fd6c3"/><stop offset="1" stop-color="#0f6f6a"/></radialGradient>
-        <radialGradient id="eg-blue" cx="45%" cy="40%" r="60%"><stop offset="0" stop-color="#5b97ff"/><stop offset="1" stop-color="#1a3f9a"/></radialGradient>
+        <radialGradient id="eg-iris" cx="45%" cy="40%" r="62%"><stop offset="0" stop-color="#3fd6c3"/><stop offset=".55" stop-color="#2a8fd0"/><stop offset="1" stop-color="#1a3f9a"/></radialGradient>
       </defs>
-      <g stroke="#d9b45a" stroke-width=".9" stroke-linecap="round" opacity=".55">
-        <path d="M32 6V1M22 8l-3-4.5M42 8l3-4.5M14 14l-4.5-3M50 14l4.5-3M9 23l-5-1.5M55 23l5-1.5M7 33H2M57 33h5M9 43l-5 1.5M55 43l5 1.5M14 52l-4 3.5M50 52l4 3.5M22 58l-2.5 4.5M42 58l2.5 4.5"/>
-      </g>
-      <path d="M32 7c12 7 19 16 19 27s-8.5 22-19 22-19-11-19-22S20 14 32 7z" fill="#0a2a2f" stroke="#d9b45a" stroke-width="1.6"/>
+      <circle cx="32" cy="32" r="29" stroke="#d9b45a" stroke-width="1.5" opacity=".6"/>
+      <circle cx="32" cy="32" r="24.5" stroke="#2fb8a8" stroke-width="1" opacity=".5" stroke-dasharray="1.5 3.2"/>
+      <path d="M32 1.5v6M32 56.5v6M1.5 32h6M56.5 32h6" stroke="#d9b45a" stroke-width="1.6" stroke-linecap="round"/>
+      <path d="M32 3.5l2.2 6.3h-4.4zM32 60.5l-2.2-6.3h4.4z" fill="#d9b45a" opacity=".9"/>
       <g class="lid">
-        <path d="M32 14c8.6 5.4 13 12 13 20s-5.8 15.5-13 15.5S19 42 19 34s4.4-14.6 13-20z" fill="url(#eg-teal)"/>
-        <ellipse cx="32" cy="35" rx="8.6" ry="9.8" fill="#d9b45a" opacity=".9"/>
+        <path d="M13 32c5.2-8 11.6-12 19-12s13.8 4 19 12c-5.2 8-11.6 12-19 12s-13.8-4-19-12z" stroke="#d9b45a" stroke-width="2" stroke-linejoin="round" fill="#071a20"/>
         <g class="pupil">
-          <ellipse cx="32" cy="35" rx="7" ry="8.2" fill="url(#eg-blue)"/>
-          <ellipse cx="32" cy="35.5" rx="3.2" ry="4" fill="#06101f"/>
-          <circle cx="34.2" cy="32.4" r="1.4" fill="#fff6dc"/>
+          <circle cx="32" cy="32" r="8.4" fill="#d9b45a"/>
+          <circle cx="32" cy="32" r="7" fill="url(#eg-iris)"/>
+          <circle cx="32" cy="32" r="3.1" fill="#06101f"/>
+          <circle cx="34.4" cy="29.6" r="1.4" fill="#fff6dc"/>
         </g>
       </g>
     </svg>
