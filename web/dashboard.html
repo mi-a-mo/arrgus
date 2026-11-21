@@ -39,9 +39,8 @@
   @keyframes watch { 0%, 38%, 100% { transform: translateX(0); } 45%, 58% { transform: translateX(-3px); } 66%, 80% { transform: translateX(3px); } }
   .emblem .lid { transform-origin: 32px 32px; animation: blink 7s infinite; }
   @keyframes blink { 0%, 96%, 100% { transform: scaleY(1); } 98% { transform: scaleY(.1); } }
-  .motto { font: italic 12px/1.2 var(--display); color: var(--muted); letter-spacing: .08em; margin-top: -2px; }
-  .wordmark { font: 700 13px/1 var(--display); letter-spacing: .42em; color: var(--accent-hi); text-transform: uppercase; padding-left: .42em; }
-  h1 { margin: 2px 0 0; font: 600 30px/1.15 var(--display); letter-spacing: .04em; text-align: center; color: var(--text); }
+  h1.wordmark { margin: 4px 0 0; font: 700 40px/1.1 var(--display); letter-spacing: .3em; padding-left: .3em; text-transform: uppercase;
+                text-align: center; color: var(--accent-hi); text-shadow: 0 0 22px #d9b45a40, 0 0 2px #00000080; }
   p.sub { text-align: center; color: var(--muted); margin: 0; font-size: 13.5px; letter-spacing: .02em; }
   .rule { width: min(360px, 70%); height: 1px; background: var(--brass-line); margin: 10px auto 0; }
   h2 { font: 600 12.5px/1.2 var(--display); text-transform: uppercase; letter-spacing: .16em; color: var(--accent); margin: 0 0 14px;
@@ -184,7 +183,7 @@
   .bigcount { font: 700 46px/1.1 var(--display); text-align: center; font-variant-numeric: tabular-nums; margin: 10px 0; color: var(--accent-hi); }
   .foot { text-align: center; color: var(--muted); font-size: 12px; margin-top: 28px; letter-spacing: .03em; }
   .foot::before { content: ""; display: block; width: 120px; height: 1px; margin: 0 auto 12px; background: var(--brass-line); }
-  @media (max-width: 520px) { h1 { font-size: 24px; } .emblem { width: 54px; height: 54px; } .buttons .btn { flex: 1 1 auto; justify-content: center; } }
+  @media (max-width: 520px) { h1.wordmark { font-size: 30px; letter-spacing: .24em; padding-left: .24em; } .emblem { width: 54px; height: 54px; } .buttons .btn { flex: 1 1 auto; justify-content: center; } }
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 </style>
 </head>
@@ -209,9 +208,7 @@
         </g>
       </g>
     </svg>
-    <div class="wordmark">Arrgus</div>
-    <div class="motto">a hundred eyes, never all asleep</div>
-    <h1 id="title"></h1>
+    <h1 class="wordmark">Arrgus</h1>
     <p class="sub" id="subtitle"></p>
     <div class="rule"></div>
   </header>
@@ -346,7 +343,6 @@ async function api(path, body) {
 
 // ---------- static header ----------
 document.title = BOOT.title;
-$("title").textContent = BOOT.title;
 $("subtitle").textContent = BOOT.subtitle;
 $("links").innerHTML = BOOT.links.map((l) => `<a class="tile" href="${esc(l.url)}" rel="noreferrer">
   ${l.icon ? `<img src="${esc(l.icon)}" alt="" onerror="this.style.display='none'">` : ""}${esc(l.name)}</a>`).join("");
