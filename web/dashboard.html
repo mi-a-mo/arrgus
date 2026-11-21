@@ -246,6 +246,16 @@
   .sys .drive { margin-top: 7px; }
   .sys .drive .sub { margin-top: 2px !important; }
   .sys .spark { height: 24px; margin-top: 5px; }
+
+  /* storage: one line per drive — path | bar | free | used% */
+  .dline { display: grid; grid-template-columns: minmax(0, max-content) minmax(28px, 1fr) auto 3.2em; align-items: center;
+           gap: 8px; margin-top: 6px; font-size: 13.5px; }
+  .lbl + .dline { margin-top: 2px; }
+  .dline .k { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dline .bar { margin-top: 0; }
+  .dline .free { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .dline .v { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }
+  .lbl-note { text-transform: none; letter-spacing: 0; opacity: .7; margin-left: 4px; }
 </style>
 </head>
 <body>
@@ -366,11 +376,11 @@ function renderSystem(sys) {
     `<div class="kv"><span class="k">${esc(t.name)}</span><span class="v ${lvl(t.c, t.warn, t.crit)}">${Math.round(t.c)}°C</span></div>
      ${bar(100 * t.c / t.crit, lvl(t.c, t.warn, t.crit))}`).join("") : `<div class="empty">No temperature sensors found.</div>`}
     <div class="sub">Media drives (USB/SATA) don't report temperature.</div></div>`;
-  const disks = `<div class="tile2"><div class="lbl">Storage</div>${d.items.map((x) => x.mounted
-    ? `<div class="drive"><div class="kv"><span class="k">${esc(x.path)}</span><span class="v ${lvl(x.pct, d.warn, d.crit)}">${Math.round(x.pct)}%</span></div>
-       ${bar(x.pct, lvl(x.pct, d.warn, d.crit))}
-       <div class="sub" style="margin-top:4px">${bytes(x.used)} used · <b style="color:var(--text)">${bytes(x.free)} free</b> of ${bytes(x.total)}</div></div>`
-    : `<div class="drive"><div class="kv"><span class="k">${esc(x.path)}</span><span class="v fail">NOT MOUNTED</span></div></div>`).join("")}</div>`;
+  const disks = `<div class="tile2"><div class="lbl">Storage <span class="lbl-note">free · used</span></div>${d.items.map((x) => x.mounted
+    ? `<div class="dline" title="${esc(x.path)}: ${bytes(x.used)} used · ${bytes(x.free)} free of ${bytes(x.total)}">
+         <span class="k">${esc(x.path)}</span>${bar(x.pct, lvl(x.pct, d.warn, d.crit))}
+         <span class="free">${bytes(x.free)}</span><span class="v ${lvl(x.pct, d.warn, d.crit)}">${Math.round(x.pct)}%</span></div>`
+    : `<div class="dline"><span class="k">${esc(x.path)}</span><span class="v fail" style="grid-column: 2 / -1">NOT MOUNTED</span></div>`).join("")}</div>`;
   $("system").innerHTML = cpu + mem + temps + disks;
 }
 
