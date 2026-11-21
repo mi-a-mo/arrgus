@@ -72,6 +72,7 @@ class Logbook:
         self.dir = Path(gh.get("log_dir") or Path.home() / f"arrgus-{self.box}")
         self.remote = gh.get("remote", "")
         self.key = os.path.expanduser(gh.get("ssh_key", "")) if gh.get("ssh_key") else ""
+        self.backup_files = [Path(os.path.expanduser(f)) for f in gh.get("backup_files", [])]
         self.scrub = Scrubber(cfg)
         self.lock = threading.RLock()
         self.dirty = False
@@ -160,8 +161,23 @@ class Logbook:
         if push:
             self.push_now.set()
 
+    def _sync_backups(self):
+        """Copy the configured box files into box/ verbatim (not scrubbed) when they change."""
+        for src in self.backup_files:
+            try:
+                data = src.read_bytes()
+            except OSError as e:
+                log.warning("backup: cannot read %s: %s", src, e)
+                continue
+            dst = self.dir / "box" / src.name
+            if not dst.exists() or dst.read_bytes() != data:
+                dst.parent.mkdir(exist_ok=True)
+                dst.write_bytes(data)
+                self.dirty = True
+
     def publish(self):
         with self.lock:
+            self._sync_backups()
             if self.dirty:
                 self._git("add", "-A")
                 rc, out, _ = self._git("status", "--porcelain")

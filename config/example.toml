@@ -44,6 +44,9 @@ notes_file = "/home/me/arrgus/box-notes-mybox.md"
 log_dir = "/home/me/arrgus-mybox-log"
 remote = ""                          # git@github.com:<user>/arrgus-mybox-log.git (private)
 ssh_key = "~/.ssh/arrgus_log_github"
+# Box-specific files to back up into box/ in the log repo whenever they change. Copied as-is (NOT
+# scrubbed), so keep the repo private and never list secrets (state/proxy_secret, .env files).
+backup_files = []                    # e.g. ["/home/me/arrgus/config/mybox.toml", "/home/me/arrgus/box-notes-mybox.md"]
 
 [web]
 listen = "127.0.0.1"                 # an address only your reverse proxy can reach
