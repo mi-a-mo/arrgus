@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#02060a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Arrgus">
+<title>Arrgus</title>
+<link rel="manifest" href="/app/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/app/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="/app/favicon-64.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/theme.css?v={{UI}}">
+<style>
+  [hidden] { display: none !important; }
+  html, body.app { height: 100%; }
+  body.app { margin: 0; padding: 0; overflow: hidden; display: flex; flex-direction: column; font-size: 15px;
+             overscroll-behavior: none; -webkit-user-select: none; user-select: none; }
+  body.app input, body.app textarea, body.app pre, body.app .t-text, body.app .sel { -webkit-user-select: text; user-select: text; }
+  body.app textarea, body.app input { font-size: 16px; }
+
+  /* top bar */
+  .ab-top { flex: none; display: flex; align-items: center; gap: 10px; padding: calc(env(safe-area-inset-top) + 8px) 14px 8px;
+            background: #02060ae6; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); z-index: 5; }
+  .ab-top .emblem { width: 30px; height: 30px; filter: none; }
+  .ab-top .wm { font: 700 17px/1 var(--display); letter-spacing: .22em; color: var(--accent-hi); }
+  .ab-top .grow { flex: 1; }
+  .ab-top .status { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: var(--muted); }
+  .ab-top .status .dot { width: 10px; height: 10px; box-shadow: none; }
+  .iconbtn { display: inline-grid; place-items: center; width: 40px; height: 40px; color: var(--muted); border: 1px solid transparent; background: none; }
+  .iconbtn:active { color: var(--accent-hi); border-color: var(--line-hi); }
+  .iconbtn svg { width: 22px; height: 22px; }
+
+  /* main scroll area */
+  main { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain; position: relative;
+         padding: 12px max(14px, env(safe-area-inset-left)) 20px max(14px, env(safe-area-inset-right)); }
+  .view { max-width: 680px; margin: 0 auto; }
+  .card { padding: 14px; margin-bottom: 12px; }
+  .card::after { inset: 3px; }
+  h2 { font-size: 13px; margin-bottom: 10px; }
+  .ptr { height: 0; overflow: hidden; display: grid; place-items: center; color: var(--muted); font-size: 13px; transition: height .2s; }
+  .ptr.pulling { transition: none; }
+  .offline { margin: 0 0 12px; padding: 10px 12px; border: 1px solid #f0b44c66; background: #f0b44c12; color: var(--warn); font-size: 13.5px; }
+
+  /* tab bar */
+  .ab-tabs { flex: none; display: grid; grid-template-columns: repeat(5, 1fr); background: #02060af0; backdrop-filter: blur(10px);
+             -webkit-backdrop-filter: blur(10px); border-top: 1px solid var(--line); padding: 4px max(4px, env(safe-area-inset-left)) calc(env(safe-area-inset-bottom) + 4px) max(4px, env(safe-area-inset-right)); z-index: 5; }
+  .ab-tabs button { all: unset; position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 0 4px;
+                    color: var(--muted); font-size: 11px; letter-spacing: .02em; cursor: pointer; }
+  .ab-tabs button svg { width: 24px; height: 24px; }
+  .ab-tabs button[aria-selected="true"] { color: var(--accent-hi); }
+  .ab-tabs button[aria-selected="true"]::before { content: ""; position: absolute; top: -5px; left: 30%; right: 30%; height: 2px; background: var(--accent); }
+  .ab-tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .tbadge { position: absolute; top: 2px; left: calc(50% + 7px); min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px;
+            background: var(--fail); color: #fff; font: 700 10px/16px system-ui, sans-serif; text-align: center; }
+  .tbadge.info { background: var(--sapphire); }
+
+  /* home */
+  .hero2 { display: flex; align-items: center; gap: 14px; }
+  .hero2 .dot { width: 16px; height: 16px; }
+  .hero2 .big { font: 600 20px/1.25 var(--display); }
+  .hero2 .meta { color: var(--muted); font-size: 13px; margin-top: 2px; }
+  .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .actions .btn { justify-content: center; min-height: 50px; white-space: normal; text-align: center; }
+  .actions .btn.primary, .actions .wide { grid-column: 1 / -1; }
+  .install { border-color: #2fb8a866; }
+
+  /* apps */
+  .launcher { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 10px; }
+  .launcher a { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 4px 12px; text-decoration: none; color: var(--text);
+                background: linear-gradient(180deg, #153440, #10252f); border: 1px solid var(--line); font-size: 12.5px; font-weight: 600; text-align: center; overflow-wrap: anywhere; }
+  .launcher a:active { border-color: var(--accent); filter: brightness(1.15); }
+  .launcher img, .launcher .noicon { width: 40px; height: 40px; object-fit: contain; }
+  .launcher .noicon { display: grid; place-items: center; border: 1px solid var(--line-hi); font: 600 18px var(--display); color: var(--accent); }
+
+  /* lists */
+  .row { gap: 10px; padding: 11px 0; }
+  .tap { cursor: pointer; }
+  .tap:active { background: #ffffff08; }
+  .chev { color: var(--muted); align-self: center; font-size: 18px; }
+  .events-feed .row .ts { font-size: 12px; }
+  .ev-detail { display: none; } .row.open .ev-detail { display: block; }
+
+  /* system */
+  .sys { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .sys .tile2:has(.dline) { grid-column: 1 / -1; }
+  @media (max-width: 340px) { .sys { grid-template-columns: 1fr; } }
+
+  /* sheets: full-screen panels */
+  .sheet { position: fixed; inset: 0; z-index: 30; display: flex; flex-direction: column; background: var(--bg0);
+           transform: translateY(100%); transition: transform .28s cubic-bezier(.2,.8,.2,1); visibility: hidden; }
+  .sheet.open { transform: none; visibility: visible; }
+  .sheet-h { flex: none; display: flex; align-items: center; gap: 8px; padding: calc(env(safe-area-inset-top) + 6px) 8px 6px 14px;
+             border-bottom: 1px solid var(--line); background: var(--card); }
+  .sheet-h .title { flex: 1; min-width: 0; font: 600 16px/1.3 var(--display); color: var(--accent-hi); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sheet-b { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain; padding: 14px; }
+  .sheet-f { flex: none; padding: 10px 12px calc(env(safe-area-inset-bottom) + 10px); border-top: 1px solid var(--line); background: var(--card); }
+  .composer { display: flex; gap: 8px; align-items: flex-end; }
+  .composer textarea { min-height: 44px; max-height: 40vh; height: 44px; resize: none; }
+  .composer .btn { min-height: 44px; }
+  .note { color: var(--muted); font-size: 12.5px; margin-top: 6px; }
+  .turn { border-bottom-color: #ffffff12; }
+  .t-user { max-width: 88%; }
+  .bigcount { margin: 30px 0 10px; }
+  .toast { bottom: calc(env(safe-area-inset-bottom) + 76px); max-width: calc(100vw - 32px); width: max-content; text-align: center; z-index: 40; }
+</style>
+</head>
+<body class="app">
+<header class="ab-top">
+  <svg class="emblem" viewBox="0 0 64 64" aria-hidden="true" fill="none">
+    <defs><radialGradient id="eg-iris" cx="45%" cy="40%" r="62%"><stop offset="0" stop-color="#3fd6c3"/><stop offset=".55" stop-color="#2a8fd0"/><stop offset="1" stop-color="#1a3f9a"/></radialGradient></defs>
+    <circle cx="32" cy="32" r="29" stroke="#d9b45a" stroke-width="2" opacity=".7"/>
+    <path d="M32 1.5v6M32 56.5v6M1.5 32h6M56.5 32h6" stroke="#d9b45a" stroke-width="2.4" stroke-linecap="round"/>
+    <g class="lid"><path d="M13 32c5.2-8 11.6-12 19-12s13.8 4 19 12c-5.2 8-11.6 12-19 12s-13.8-4-19-12z" stroke="#d9b45a" stroke-width="2.6" stroke-linejoin="round" fill="#071a20"/>
+      <g class="pupil"><circle cx="32" cy="32" r="8.4" fill="#d9b45a"/><circle cx="32" cy="32" r="7" fill="url(#eg-iris)"/>
+        <circle cx="32" cy="32" r="3.1" fill="#06101f"/><circle cx="34.4" cy="29.6" r="1.4" fill="#fff6dc"/></g></g>
+  </svg>
+  <span class="wm">ARRGUS</span>
+  <span class="grow"></span>
+  <span class="status" id="top-status"><span class="dot" id="top-dot"></span><span id="top-label">…</span></span>
+  <a class="iconbtn" href="/settings?from=app" aria-label="Settings">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+  </a>
+</header>
+
+<main id="main">
+  <div class="ptr" id="ptr"><span id="ptr-text">Pull to refresh</span></div>
+  <div class="view">
+    <div class="offline" id="offline" hidden></div>
+    <section id="v-home"></section>
+    <section id="v-apps" hidden></section>
+    <section id="v-ai" hidden></section>
+    <section id="v-system" hidden></section>
+    <section id="v-activity" hidden></section>
+  </div>
+</main>
+
+<nav class="ab-tabs" role="tablist" aria-label="Sections">
+  <button role="tab" data-tab="home" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M3 11 12 3l9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Home<span class="tbadge" id="badge-home" hidden></span></button>
+  <button role="tab" data-tab="apps" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3.5" y="3.5" width="7" height="7"/><rect x="13.5" y="3.5" width="7" height="7"/><rect x="3.5" y="13.5" width="7" height="7"/><rect x="13.5" y="13.5" width="7" height="7"/></svg>Apps</button>
+  <button role="tab" data-tab="ai" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/><path d="M8.5 10.5h.01M12 10.5h.01M15.5 10.5h.01" stroke-width="2.4" stroke-linecap="round"/></svg>AI<span class="tbadge info" id="badge-ai" hidden></span></button>
+  <button role="tab" data-tab="system" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg>System</button>
+  <button role="tab" data-tab="activity" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>Activity</button>
+</nav>
+
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+  <div class="sheet-h"><div class="title" id="sheet-title"></div>
+    <button class="iconbtn" id="sheet-close" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+  <div class="sheet-b" id="sheet-b"></div>
+  <div class="sheet-f" id="sheet-f" hidden></div>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+const BOOT = {{BOOT_JSON}};
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function safeGet(k) { try { return localStorage.getItem(k); } catch { return null; } }
+function safeSet(k, v) { try { localStorage.setItem(k, v); } catch {} }
+function toast(msg) { const t = $("toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 3500); }
+function ago(iso) {
+  if (!iso) return "never";
+  const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+  if (s < 60) return Math.round(s) + "s ago";
+  if (s < 3600) return Math.round(s / 60) + "m ago";
+  if (s < 86400) return (s / 3600).toFixed(1) + "h ago";
+  return (s / 86400).toFixed(1) + "d ago";
+}
+function when(iso) {
+  if (!iso) return "";
+  const d = new Date(iso), today = new Date().toDateString() === d.toDateString();
+  return today ? d.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"})
+               : d.toLocaleDateString([], {month: "short", day: "numeric"}) + " " + d.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"});
+}
+function bytes(n) {
+  if (n == null) return "?";
+  const u = ["B", "KB", "MB", "GB", "TB", "PB"]; let i = 0;
+  while (n >= 1000 && i < u.length - 1) { n /= 1000; i++; }
+  return (n >= 100 || i === 0 ? Math.round(n) : n.toFixed(n >= 10 ? 1 : 2)) + " " + u[i];
+}
+const lvl = (v, warn, crit) => v == null ? "" : v >= crit ? "fail" : v >= warn ? "warn" : "ok";
+const bar = (pct, cls = "", extra = "") => `<div class="bar ${cls} ${extra}"><i style="width:${Math.max(0, Math.min(100, pct || 0))}%"></i></div>`;
+
+async function api(path, body, timeoutMs = 10000) {
+  const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), timeoutMs);
+  const opt = body === undefined ? {cache: "no-store", signal: ctl.signal}
+    : {method: "POST", headers: {"X-Arrgus": "1", "Content-Type": "application/json"}, body: JSON.stringify(body), signal: ctl.signal};
+  try {
+    const r = await fetch(path, opt);
+    let j = {}; try { j = await r.json(); } catch {}
+    if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+    return j;
+  } catch (e) {
+    if (e.name === "AbortError") throw new Error("Arrgus didn't answer in time");
+    throw e;
+  } finally { clearTimeout(t); }
+}
+
+// ---------- state, refresh, offline ----------
+const ss = {get: (k) => { try { return sessionStorage.getItem(k); } catch { return null; } },
+            set: (k, v) => { try { sessionStorage.setItem(k, v); } catch {} }};
+let S = null, online = true, pollTimer = null, tab = ss.get("arrgus.app.tab") || "home";
+const openGroups = {}, openEvents = new Set(), spacePinned = new Set();
+try { const c = JSON.parse(safeGet("arrgus.app.last") || "null"); if (c && c.box === BOOT.box) S = c; } catch {}
+
+async function refresh(manual) {
+  clearTimeout(pollTimer);
+  try {
+    const s = await api("/api/status");
+    S = s; online = true;
+    safeSet("arrgus.app.last", JSON.stringify(s));
+    if (manual) toast("Updated");
+    if (S.ui && BOOT.ui && S.ui !== BOOT.ui && !sheetOpen()) return location.reload();
+  } catch (e) {
+    online = false;
+    if (manual) toast("Can't reach Arrgus");
+  }
+  render();
+  if (document.visibilityState === "visible") {
+    const busy = S && (S.checking || (S.updates && S.updates.progress && S.updates.progress.active) || (S.reboot && (S.reboot.scheduled || S.reboot.rebooting))
+                       || S.actions.some((a) => a.status === "running"));
+    pollTimer = setTimeout(refresh, !online ? 15000 : busy ? 3000 : 10000);
+  }
+}
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") refresh(); else clearTimeout(pollTimer); });
+window.addEventListener("online", () => refresh());
+
+// ---------- tabs ----------
+function showTab(t) {
+  tab = t; ss.set("arrgus.app.tab", t);
+  document.querySelectorAll(".ab-tabs [data-tab]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === t)));
+  ["home", "apps", "ai", "system", "activity"].forEach((v) => $("v-" + v).hidden = v !== t);
+  $("main").scrollTop = 0;
+  render();
+}
+document.querySelectorAll(".ab-tabs [data-tab]").forEach((b) => b.onclick = () => showTab(b.dataset.tab));
+
+// ---------- rendering ----------
+const LABEL = {ok: "All systems healthy", warn: "Healthy, with warnings", fail: "Problems detected", unknown: "No check yet"};
+const SHORT = {ok: "Healthy", warn: "Warnings", fail: "Problems", unknown: "…"};
+function render() {
+  $("offline").hidden = online;
+  if (!online) $("offline").innerHTML = S
+    ? `Can't reach Arrgus. Showing what it reported ${esc(ago(S.now))}. Check that Tailscale is connected on this phone.`
+    : `Can't reach Arrgus. Check that Tailscale is connected on this phone, then pull down to try again.`;
+  if (!S) { $("v-home").innerHTML = `<div class="card"><div class="empty">${online ? "Loading…" : "No status yet."}</div></div>`; return; }
+  $("top-dot").className = "dot " + (online ? S.overall : "");
+  $("top-label").textContent = online ? SHORT[S.overall] : "Offline";
+  const nIssues = S.incidents.length, aiLive = S.ai.jobs.filter((j) => ["running", "queued"].includes(j.status)).length;
+  $("badge-home").hidden = !nIssues; $("badge-home").textContent = nIssues;
+  $("badge-ai").hidden = !aiLive; $("badge-ai").textContent = aiLive;
+  ({home: renderHome, apps: renderApps, ai: renderAI, system: renderSystem, activity: renderActivity})[tab]();
+}
+
+function renderHome() {
+  const s = S, rb = s.reboot || {}, running = s.actions.filter((a) => a.status === "running");
+  let h = `<div class="card"><div class="hero2"><span class="dot ${online ? s.overall : ""}"></span><div>
+      <div class="big">${esc(LABEL[s.overall])}</div>
+      <div class="meta">${s.checking ? `<span class="spin"></span> checking… · ` : ""}Last check ${esc(ago(s.last_check))} ·
+        ${s.results.filter((r) => r.status === "ok").length}/${s.results.length} OK${running.length ? " · " + running.map((a) => esc(a.label) + "…").join(", ") : ""}</div></div></div></div>`;
+  if (!standalone() && safeGet("arrgus.app.installHidden") !== "1") {
+    h += `<div class="card install"><h2>Install the app</h2>
+      <p class="detail" style="margin:0 0 10px">${/iphone|ipad/i.test(navigator.userAgent)
+        ? "In Safari, tap <b>Share</b> and then <b>Add to Home Screen</b>."
+        : "Open your browser's menu and choose <b>Install app</b> or <b>Add to Home screen</b>."}</p>
+      <div class="buttons">${deferredInstall ? `<button class="btn primary" id="b-install">Install</button>` : ""}<button class="btn small" id="b-install-hide">Not now</button></div></div>`;
+  }
+  if (rb.required || rb.scheduled || rb.rebooting) {
+    h += `<div class="card"><h2 style="color:var(--warn)">Reboot ${rb.scheduled || rb.rebooting ? "in progress" : "needed"}</h2>
+      <div class="detail">${rb.scheduled ? `Rebooting in ${rb.scheduled.seconds_left}s.` : rb.rebooting ? "Rebooting now…" : "Pending: " + esc((rb.packages || []).join(", "))}
+      ${rb.kernel_new && rb.kernel_new !== rb.kernel_running ? `<br>Kernel ${esc(rb.kernel_running)} → ${esc(rb.kernel_new)}` : ""}</div>
+      <div style="margin-top:10px"><button class="btn danger" data-act="reboot">${rb.scheduled || rb.rebooting ? "Show progress" : "Reboot now"}</button></div></div>`;
+  }
+  if (s.incidents.length) {
+    h += `<div class="card issue"><h2 style="color:var(--fail)">Open issues</h2>` + s.incidents.map((i) => `<div class="row">
+      <div class="pip fail"></div><div class="grow"><div class="name">${esc(i.name)}</div>
+      <div class="detail">${esc(i.detail)} · since ${esc(when(i.opened))} · fix attempts ${i.attempts}${i.ai_runs ? ", AI runs " + i.ai_runs : ""}${i.last_fixer ? " · last: " + esc(i.last_fixer) : ""}</div></div></div>`).join("") + `</div>`;
+  }
+  h += updatesHtml(s);
+  const aiOff = !s.ai.enabled;
+  h += `<div class="card"><h2>Actions</h2><div class="actions">
+    <button class="btn primary" data-act="report" ${aiOff ? "disabled" : ""}>Report an issue</button>
+    <button class="btn" data-act="ask" ${aiOff ? "disabled" : ""}>Ask AI</button>
+    <button class="btn" data-act="check" ${s.checking ? "disabled" : ""}>${s.checking ? `<span class="spin"></span> Checking` : "System check"}</button>
+    <button class="btn" data-act="versions" ${s.updates.checking ? "disabled" : ""}>${s.updates.checking ? `<span class="spin"></span> Checking` : "Version check"}</button>
+    <button class="btn${rb.required ? " danger" : ""}" data-act="reboot">${rb.required ? `<span class="badge"></span> ` : ""}Reboot</button>
+    <a class="btn wide" href="/settings?from=app">Settings</a></div></div>`;
+  $("v-home").innerHTML = h;
+  $("b-install")?.addEventListener("click", async () => { deferredInstall.prompt(); deferredInstall = null; render(); });
+  $("b-install-hide")?.addEventListener("click", () => { safeSet("arrgus.app.installHidden", "1"); render(); });
+}
+
+function updatesHtml(s) {
+  const pend = s.updates.images.filter((e) => ["available", "pulled", "applying"].includes(e.status));
+  const os = s.updates.os, prog = s.updates.progress || {}, updating = !!prog.active;
+  let u = `<div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><h2 style="margin:0 0 10px">Updates</h2>
+    <span class="ts">${s.updates.checked ? "checked " + esc(ago(s.updates.checked)) : "not checked yet"}</span></div>`;
+  if (prog.items && prog.items.length && (prog.active || safeGet("arrgus.app.progDismissed") !== prog.finished)) {
+    const icon = {ok: "ok", failed: "fail", rolled_back: "warn", running: "info", pending: ""};
+    const word = {ok: "done", failed: "failed", rolled_back: "rolled back", running: "in progress", pending: "waiting"};
+    u += `<div class="prog"><div class="top"><div><div class="name">${esc(prog.label)}</div>
+      <div class="detail">${prog.active ? `<span class="spin"></span> ` : ""}${esc(prog.stage)}</div></div><div class="pct">${prog.percent}%</div></div>
+      ${bar(prog.percent, prog.active ? "" : prog.ok ? "ok" : "warn", (prog.active ? "live " : "") + "big")}
+      ${prog.items.length > 1 || prog.kind === "os" ? prog.items.map((it) => `<div class="item"><div class="kv"><span class="k">${esc(it.name)}</span>
+        <span class="chip ${icon[it.status] || ""}">${esc(word[it.status] || it.status)}</span></div>${bar(it.percent, icon[it.status] === "info" ? "" : icon[it.status], it.status === "running" ? "live" : "")}</div>`).join("") : ""}
+      ${!prog.active ? `<div style="text-align:right;margin-top:10px"><button class="btn small" data-progdismiss="${esc(prog.finished)}">Dismiss</button></div>` : ""}</div>`;
+  }
+  if (pend.length) {
+    const approvable = pend.filter((e) => e.status !== "applying");
+    u += pend.map((e) => `<div class="row"><div class="pip info"></div><div class="grow"><div class="name">${esc(e.service)}</div>
+      <div class="detail">${esc(e.current || "?")} → ${esc(e.available || "new build")}</div></div>
+      ${e.status === "applying" ? `<span class="chip info"><span class="spin" style="width:9px;height:9px"></span> applying</span>`
+        : `<button class="btn small primary" data-approve="${esc(e.service)}" ${updating ? "disabled" : ""}>Approve</button>`}</div>`).join("");
+    if (approvable.length > 1) u += `<button class="btn" style="width:100%;justify-content:center;margin-top:8px;min-height:44px" data-approve="${esc(approvable.map((e) => e.service).join(","))}" ${updating ? "disabled" : ""}>Approve all ${approvable.length}</button>`;
+  } else {
+    u += `<div class="empty">All container images are current.</div>`;
+  }
+  if (os && os.count) {
+    u += `<div class="row" style="margin-top:6px"><div class="pip info"></div><div class="grow"><div class="name">OS packages</div>
+      <div class="detail">${os.count} upgradable (${os.security} security)${os.kernel ? " · new kernel: reboot afterwards" : ""}${os.docker ? " · includes Docker: containers restart briefly" : ""}</div></div>
+      <button class="btn small" data-approve-os="1" ${updating ? "disabled" : ""}>Approve</button></div>`;
+  }
+  return u + `</div>`;
+}
+
+function renderApps() {
+  const links = BOOT.links || [];
+  $("v-apps").innerHTML = `<div class="card"><h2>Apps</h2>${links.length ? `<div class="launcher">${links.map((l) => `<a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer">
+      ${l.icon ? `<img src="${esc(l.icon)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">` : `<span class="noicon">${esc((l.name || "?")[0].toUpperCase())}</span>`}
+      <span>${esc(l.name)}</span></a>`).join("")}</div>` : `<div class="empty">No app links yet. Add them in Settings → Services.</div>`}</div>`;
+}
+
+const STATUS_CHIP = (j) => {
+  const r = j.result && j.result.status;
+  if (j.status === "running") return `<span class="chip info"><span class="spin" style="width:9px;height:9px"></span> running</span>`;
+  if (j.status === "queued") return `<span class="chip">queued</span>`;
+  const cls = {fixed: "ok", answered: "ok", partially_fixed: "warn"}[r] || (j.status === "done" ? "info" : "fail");
+  return `<span class="chip ${cls}">${esc((r || j.status).replace("_", " "))}</span>`;
+};
+function renderAI() {
+  const a = S.ai;
+  const access = a.access === "read_only" ? "investigates only" : a.access === "full" ? "can fix things" : "custom permissions";
+  $("v-ai").innerHTML = `<div class="card"><h2>AI</h2>
+      <div class="detail" style="margin-bottom:12px">${a.enabled ? `${esc(a.agent_name || "AI")} · ${access}` : "AI is turned off in Settings."}</div>
+      <div class="actions"><button class="btn primary" data-act="report" ${a.enabled ? "" : "disabled"}>Report an issue</button>
+        <button class="btn wide" data-act="ask" ${a.enabled ? "" : "disabled"}>Ask a question</button></div></div>
+    <div class="card"><h2>Conversations</h2>${a.jobs.length ? a.jobs.map((j) => `<div class="row tap" data-job="${esc(j.id)}">
+      <div class="grow"><div class="name">${esc(j.title)}</div><div class="detail">${esc(when(j.updated || j.created))}${j.turns > 1 ? ` · ${j.turns} messages` : ""}</div></div>
+      ${STATUS_CHIP(j)}<span class="chev">›</span></div>`).join("") : `<div class="empty">None yet.</div>`}</div>`;
+}
+
+function spark(vals) {
+  if (!vals || vals.length < 2) return "";
+  const w = 200, h = 34, max = Math.max(25, ...vals), step = w / (vals.length - 1);
+  const pts = vals.map((v, i) => `${(i * step).toFixed(1)},${(h - 2 - (v / max) * (h - 4)).toFixed(1)}`).join(" ");
+  return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">
+    <polyline points="0,${h} ${pts} ${w},${h}" class="area" stroke="none"/>
+    <polyline points="${pts}" class="line" stroke-width="1.5" vector-effect="non-scaling-stroke"/></svg>`;
+}
+function renderSystem() {
+  const sys = S.system;
+  let h = "";
+  if (sys) {
+    const c = sys.cpu, m = sys.memory, d = sys.disks, cpuPct = c.pct;
+    const loadLvl = lvl(c.load[1], c.cores, c.cores * 2);
+    h += `<div class="card"><h2>System</h2><div class="sys">
+      <div class="tile2"><div class="lbl">CPU</div><div class="val">${cpuPct == null ? "…" : cpuPct.toFixed(cpuPct < 10 ? 1 : 0) + "%"}</div>
+        ${bar(cpuPct, lvl(cpuPct, 80, 95))}<div class="sub">Load <span class="v ${loadLvl}">${esc(c.load[1])}</span> · ${c.cores} cores</div>${spark(c.history)}</div>
+      <div class="tile2"><div class="lbl">Memory</div><div class="val">${m.pct}%</div>${bar(m.pct, lvl(m.pct, 85, 95))}
+        <div class="sub">${bytes(m.used)} of ${bytes(m.total)}</div></div>
+      <div class="tile2" style="grid-column:1/-1"><div class="lbl">Temperature</div>${sys.temps.length ? sys.temps.map((t) =>
+        `<div class="kv"><span class="k">${esc(t.name)}</span><span class="v ${lvl(t.c, t.warn, t.crit)}">${Math.round(t.c)}°C</span></div>${bar(100 * t.c / t.crit, lvl(t.c, t.warn, t.crit))}`).join("")
+        : `<div class="empty">No sensors found.</div>`}</div>
+      <div class="tile2"><div class="lbl">Storage</div>${d.items.map((x) => x.mounted
+        ? `<div class="dline"><span class="k">${esc(x.path)}</span><span class="nums"><button type="button" class="space${spacePinned.has(x.path) ? " on" : ""}" data-space="${esc(x.path)}"
+             aria-pressed="${spacePinned.has(x.path)}" aria-label="${esc(x.path)}: ${bytes(x.free)} free, ${bytes(x.used)} used of ${bytes(x.total)}"><span class="s-free">${bytes(x.free)} free</span><span class="s-used">${bytes(x.used)} used of ${bytes(x.total)}</span></button>
+             <span class="v ${lvl(x.pct, d.warn, d.crit)}">${Math.round(x.pct)}%</span></span>${bar(x.pct, lvl(x.pct, d.warn, d.crit))}</div>`
+        : `<div class="dline"><span class="k">${esc(x.path)}</span><span class="v fail">NOT MOUNTED</span></div>`).join("")}</div>
+    </div><p class="note">Tap a drive's free space to see used and total.</p></div>`;
+  }
+  const groups = {};
+  for (const r of S.results) (groups[r.group] = groups[r.group] || []).push(r);
+  const order = (r) => ({fail: 0, warn: 1}[r.status] ?? 2);
+  h += `<div class="card"><h2>Checks</h2>` + (Object.keys(groups).sort().map((g) => {
+    const rs = groups[g].sort((a, b) => order(a) - order(b) || a.name.localeCompare(b.name));
+    const n = (st) => rs.filter((r) => r.status === st).length, bad = n("fail") + n("warn") > 0;
+    const open = openGroups[g] ?? bad, shown = open ? rs : rs.filter((r) => r.status !== "ok");
+    return `<div class="group"><div class="group-h tap" data-group="${esc(g)}" style="padding:8px 0"><span>${open ? "▾" : "▸"} ${esc(g)}</span><span class="chips">
+      ${n("fail") ? `<span class="chip fail">${n("fail")} failing</span>` : ""}${n("warn") ? `<span class="chip warn">${n("warn")} warn</span>` : ""}<span class="chip ok">${n("ok")} ok</span></span></div>` +
+      shown.map((r) => `<div class="row"><div class="pip ${r.status}"></div><div class="grow"><div class="name">${esc(r.name)}</div><div class="detail">${esc(r.detail)}</div></div></div>`).join("") + `</div>`;
+  }).join("") || `<div class="empty">Waiting for the first check…</div>`) + `</div>`;
+  $("v-system").innerHTML = h;
+}
+
+function renderActivity() {
+  $("v-activity").innerHTML = `<div class="card events-feed"><h2>Activity</h2>` + (S.events.length ? S.events.map((e, i) => {
+    const k = e.ts + e.title;
+    return `<div class="row${e.detail ? " tap" : ""}${openEvents.has(k) ? " open" : ""}" data-ev="${esc(k)}"><div class="pip ${esc(e.level)}"></div><div class="grow">
+      <div class="name">${esc(e.title)}</div><div class="detail">${esc(e.kind)} · ${esc(when(e.ts))}${e.detail && !openEvents.has(k) ? " · tap for details" : ""}</div>
+      ${e.detail ? `<pre class="ev ev-detail sel">${esc(e.detail.slice(0, 1500))}</pre>` : ""}</div></div>`;
+  }).join("") : `<div class="empty">No events yet.</div>`) + `</div>`;
+}
+
+// ---------- taps ----------
+document.addEventListener("click", async (ev) => {
+  const t = ev.target;
+  const act = t.closest("[data-act]");
+  if (act && !act.disabled) {
+    const a = act.dataset.act;
+    if (!online && a !== "reboot") return toast("Can't reach Arrgus right now");
+    if (a === "ask" || a === "report") return openCompose(a);
+    if (a === "check") { try { await api("/api/check", {}); toast("System check started"); refresh(); } catch (e) { toast(e.message); } return; }
+    if (a === "versions") { try { await api("/api/versions", {}); toast("Version check started"); refresh(); } catch (e) { toast(e.message); } return; }
+    if (a === "reboot") return doReboot();
+  }
+  const ap = t.closest("[data-approve]");
+  if (ap && !ap.disabled) {
+    const svcs = ap.dataset.approve.split(",");
+    if (!confirm(`Update ${svcs.join(", ")}?\n\nArrgus downloads the new image, recreates the container, checks it's healthy and rolls back if not.`)) return;
+    try { await api("/api/updates/approve", {services: svcs}); toast("Update started"); refresh(); } catch (e) { toast(e.message); }
+    return;
+  }
+  const ao = t.closest("[data-approve-os]");
+  if (ao && !ao.disabled) {
+    if (!confirm("Upgrade the server's OS packages now?")) return;
+    try { await api("/api/updates/approve-os", {}); toast("OS upgrade started"); refresh(); } catch (e) { toast(e.message); }
+    return;
+  }
+  const pd = t.closest("[data-progdismiss]");
+  if (pd) { safeSet("arrgus.app.progDismissed", pd.dataset.progdismiss); return render(); }
+  const g = t.closest("[data-group]");
+  if (g) { const k = g.dataset.group, rs = S.results.filter((r) => r.group === k);
+           openGroups[k] = !(openGroups[k] ?? rs.some((r) => r.status !== "ok")); return render(); }
+  const sp = t.closest("[data-space]");
+  if (sp) { const k = sp.dataset.space; spacePinned.has(k) ? spacePinned.delete(k) : spacePinned.add(k); return render(); }
+  const e = t.closest("[data-ev]");
+  if (e && e.classList.contains("tap")) { const k = e.dataset.ev; openEvents.has(k) ? openEvents.delete(k) : openEvents.add(k); return render(); }
+  const j = t.closest("[data-job]");
+  if (j) return openThread(j.dataset.job);
+  const st = t.closest("[data-steps]");
+  if (st) { const id = st.dataset.steps, tr = st.closest(".turn");
+            openSteps.has(id) ? openSteps.delete(id) : openSteps.add(id);
+            tr.classList.toggle("steps", openSteps.has(id)); st.textContent = st.textContent.replace(/^(Show|Hide)/, openSteps.has(id) ? "Hide" : "Show"); }
+});
+
+// ---------- pull to refresh ----------
+(() => {
+  const main = $("main"), ptr = $("ptr"), txt = $("ptr-text");
+  let y0 = null, dy = 0;
+  main.addEventListener("touchstart", (e) => { y0 = main.scrollTop <= 0 ? e.touches[0].clientY : null; dy = 0; }, {passive: true});
+  main.addEventListener("touchmove", (e) => {
+    if (y0 === null) return;
+    dy = Math.max(0, e.touches[0].clientY - y0);
+    if (dy > 0 && main.scrollTop <= 0) {
+      ptr.classList.add("pulling"); ptr.style.height = Math.min(70, dy * 0.5) + "px";
+      txt.textContent = dy * 0.5 >= 56 ? "Release to refresh" : "Pull to refresh";
+    }
+  }, {passive: true});
+  main.addEventListener("touchend", async () => {
+    if (y0 === null) return;
+    const go = dy * 0.5 >= 56; y0 = null; ptr.classList.remove("pulling");
+    if (go) { txt.innerHTML = `<span class="spin"></span> Refreshing…`; ptr.style.height = "44px"; await refresh(true); }
+    ptr.style.height = "0px";
+  });
+})();
+
+// ---------- sheets ----------
+let sheetCleanup = null;
+const sheetOpen = () => $("sheet").classList.contains("open");
+function openSheet(title, body, foot) {
+  if (sheetCleanup) sheetCleanup();
+  sheetCleanup = null;
+  $("sheet-title").textContent = title; $("sheet-b").innerHTML = body;
+  $("sheet-f").hidden = !foot; $("sheet-f").innerHTML = foot || "";
+  $("sheet").classList.add("open");
+  history.pushState({sheet: true}, "");
+}
+function closeSheet(fromHistory) {
+  if (!sheetOpen()) return;
+  $("sheet").classList.remove("open");
+  if (sheetCleanup) sheetCleanup();
+  sheetCleanup = null;
+  if (!fromHistory && history.state && history.state.sheet) history.back();
+  refresh();
+}
+$("sheet-close").onclick = () => closeSheet();
+window.addEventListener("popstate", () => closeSheet(true));   // Android back button / swipe back closes the panel
+
+function autosize(ta) { ta.style.height = "44px"; ta.style.height = Math.min(ta.scrollHeight, window.innerHeight * 0.4) + "px"; }
+
+function openCompose(kind) {
+  const ask = kind === "ask", name = S?.ai?.agent_name || "The AI";
+  openSheet(ask ? "Ask AI" : "Report an issue",
+    `<p class="detail" style="margin:0 0 12px">${ask ? `${esc(name)} investigates the live system and answers. It only changes things if you ask it to.`
+      : `Describe what's wrong. ${esc(name)} troubleshoots the live system${S?.ai?.access === "read_only" ? " and explains the fix (it's set to investigate only)" : ", fixes it and checks the fix"}. Everything is logged.`}</p>
+     <textarea id="c-text" style="min-height:160px" placeholder="${ask ? "e.g. Why did Radarr stop importing yesterday?" : "e.g. Movies keep buffering since last night"}"></textarea>`,
+    `<button class="btn primary" id="c-go" style="width:100%;justify-content:center;min-height:48px">${ask ? "Ask" : "Troubleshoot &amp; fix"}</button>`);
+  const ta = $("c-text"); setTimeout(() => ta.focus(), 300);
+  $("c-go").onclick = async () => {
+    const text = ta.value.trim(); if (!text) return ta.focus();
+    $("c-go").disabled = true;
+    try { const r = await api(ask ? "/api/ai/ask" : "/api/ai/report", {text});
+          toast(r.position > 1 ? `Queued (position ${r.position})` : "Sent to the AI");
+          history.replaceState(null, ""); $("sheet").classList.remove("open"); openThread(r.job.id); }
+    catch (e) { toast(e.message); $("c-go").disabled = false; }
+  };
+}
+
+let threadSig = "", openSteps = new Set(), fuTarget = null, threadTimer = null, threadId = null;
+function turnHtml(j) {
+  const steps = j.transcript.filter((s) => s.type === "tool").length, live = ["queued", "running"].includes(j.status), open = openSteps.has(j.id);
+  let body = j.transcript.map((s) => s.type === "text" ? (s.text ? `<div class="t-text">${esc(s.text)}</div>` : "")
+    : s.type === "tool" ? `<div class="t-tool">$ ${esc(s.text)}</div>` : `<details class="t-out"><summary>output</summary><pre>${esc(s.text)}</pre></details>`).join("");
+  if (!live && j.result_text && !j.transcript.some((s) => s.type === "text" && s.text)) body = `<div class="t-text">${esc(j.result_text)}</div>` + body;
+  const progress = j.status === "queued" ? "Queued: waiting for another AI session…"
+    : j.status === "running" ? `<span class="spin"></span> Working${steps ? ` · ${steps} step${steps > 1 ? "s" : ""}` : ""}…` : "";
+  const r = j.result || (j.status === "interrupted" ? {status: "interrupted", summary: "Arrgus restarted while this was running."} : null);
+  let card = "";
+  if (!live && r && (r.status !== "answered" || (r.actions || []).length || r.owner_action)) {
+    const acts = r.actions || [];
+    card = `<div class="result ${esc(r.status)}">${r.status !== "answered" ? `<div class="name">Outcome: ${esc((r.status || "").replace("_", " "))}</div>
+      ${r.summary ? `<div style="white-space:pre-wrap;margin-top:6px">${esc(r.summary)}</div>` : ""}` : ""}
+      ${acts.length ? `<div style="margin-top:8px" class="detail">Actions taken:</div><ul style="margin:4px 0 0 18px;padding:0">${acts.map((a) => `<li>${esc(a)}</li>`).join("")}</ul>` : ""}
+      ${r.owner_action ? `<div style="margin-top:8px;color:var(--warn)">You need to: ${esc(r.owner_action)}</div>` : ""}</div>`;
+  }
+  return `<div class="turn${open ? " steps" : ""}"><div class="t-user">${esc(j.request)}</div>
+    <div class="turn-bar"><span>${progress || esc(when(j.created))}</span>${steps ? `<button class="btn small" data-steps="${esc(j.id)}">${open ? "Hide" : "Show"} steps (${steps})</button>` : ""}</div>
+    ${body}${card}</div>`;
+}
+function openThread(id) {
+  openSheet("AI conversation", `<div id="th-tr"><div class="empty">Loading…</div></div>`,
+    `<div class="composer"><textarea id="fu-text" placeholder="Reply or ask a follow-up…" rows="1"></textarea>
+      <button class="btn primary" id="fu-go" disabled>Send</button></div><div class="note" id="fu-note"></div>`);
+  threadId = id; threadSig = ""; openSteps = new Set(); fuTarget = null;
+  sheetCleanup = () => { clearTimeout(threadTimer); threadId = null; };
+  const ta = $("fu-text"); ta.addEventListener("input", () => autosize(ta));
+  $("fu-go").onclick = async () => {
+    const text = ta.value.trim(); if (!text || !fuTarget) return;
+    $("fu-go").disabled = true;
+    try { const r = await api("/api/ai/followup", {job: fuTarget, text}); ta.value = ""; autosize(ta); fuTarget = null;
+          toast(r.position > 1 ? `Queued (position ${r.position})` : "Sent"); threadSig = ""; clearTimeout(threadTimer); pollThread(id); }
+    catch (e) { toast(e.message); $("fu-go").disabled = false; }
+  };
+  pollThread(id);
+}
+async function pollThread(id) {
+  if (threadId !== id) return;
+  let th;
+  try { th = await api(`/api/ai/thread/${encodeURIComponent(id)}`); }
+  catch (e) { $("fu-note").textContent = e.message; threadTimer = setTimeout(() => pollThread(id), 5000); return; }
+  if (threadId !== id) return;
+  const last = th.turns[th.turns.length - 1], live = ["queued", "running"].includes(last.status);
+  const sig = JSON.stringify(th.turns.map((j) => [j.id, j.status, j.transcript.length])) + th.can_follow_up;
+  if (sig !== threadSig) {
+    threadSig = sig;
+    $("sheet-title").textContent = th.title;
+    const box = $("sheet-b"), atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+    $("th-tr").innerHTML = th.turns.map(turnHtml).join("");
+    if (atBottom || live) box.scrollTop = box.scrollHeight;
+  }
+  fuTarget = th.can_follow_up ? last.id : null;
+  $("fu-go").disabled = !th.can_follow_up;
+  $("fu-note").textContent = th.can_follow_up ? "" : live ? `${S?.ai?.agent_name || "The AI"} is still replying. You can type now and send when it finishes.` : (th.follow_up_error || "");
+  threadTimer = setTimeout(() => pollThread(id), live ? 2000 : 8000);
+}
+
+// ---------- reboot ----------
+let rbTimer = null, rbStarted = null, rbSince = null;
+async function doReboot() {
+  const rb = (S && S.reboot) || {};
+  if (!(rb.scheduled || rb.rebooting)) {
+    if (!online) return toast("Can't reach Arrgus right now");
+    const kern = rb.kernel_new && rb.kernel_new !== rb.kernel_running ? `\nKernel: ${rb.kernel_running} → ${rb.kernel_new}` : "";
+    if (!confirm(`Reboot ${S ? S.box : "the server"} now?\n\nEvery app goes offline for a few minutes.` +
+                 (rb.required ? `\nPending: ${(rb.packages || []).join(", ")}${kern}` : "\n(No reboot is currently pending.)") + "\n\nYou get 15 seconds to cancel.")) return;
+    let body = {};
+    for (;;) {
+      try { await api("/api/reboot", body); break; }
+      catch (e) {
+        if (body.force || !/running|being applied/.test(e.message) || !confirm(e.message + "\n\nReboot anyway? It will be interrupted.")) return toast(e.message);
+        body = {force: true};
+      }
+    }
+    rbStarted = S && S.started; rbSince = Date.now();
+  }
+  rbStarted = rbStarted || (S && S.started); rbSince = rbSince || Date.now();
+  openSheet("Reboot", `<div class="bigcount" id="rb-count"></div><p class="detail" style="text-align:center" id="rb-hint"></p>`,
+    `<button class="btn danger" id="rb-cancel" style="width:100%;justify-content:center;min-height:48px">Cancel reboot</button>`);
+  sheetCleanup = () => clearTimeout(rbTimer);
+  $("rb-cancel").onclick = async () => {
+    try { await api("/api/reboot/cancel", {}); toast("Reboot cancelled"); rbStarted = rbSince = null; closeSheet(); } catch (e) { toast(e.message); }
+  };
+  rebootPoll();
+}
+async function rebootPoll() {
+  let st = null;
+  try { st = await api("/api/status", undefined, 5000); } catch {}
+  const el = (id) => document.getElementById(id), secs = Math.round((Date.now() - (rbSince || Date.now())) / 1000);
+  const mmss = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
+  if (!el("rb-count")) return;
+  if (st && rbStarted && st.started !== rbStarted) {
+    el("rb-count").textContent = "Back up"; el("rb-hint").textContent = `Took ${mmss}.`; el("rb-cancel").hidden = true;
+    rbStarted = rbSince = null; S = st; return setTimeout(() => closeSheet(), 2500);
+  }
+  const rb = st && st.reboot;
+  if (st && !rb.scheduled && !rb.rebooting) { rbStarted = rbSince = null; return closeSheet(); }
+  if (rb && rb.scheduled && !rb.rebooting) {
+    el("rb-count").textContent = rb.scheduled.seconds_left + "s";
+    el("rb-hint").textContent = "Rebooting soon. Arrgus pushes the log to GitHub first.";
+  } else {
+    el("rb-count").innerHTML = `<span class="spin" style="width:28px;height:28px;border-width:3px"></span>`;
+    el("rb-hint").textContent = `Rebooting… waiting for the server to come back (${mmss}).`;
+    el("rb-cancel").hidden = true;
+  }
+  rbTimer = setTimeout(rebootPoll, st && rb && rb.scheduled && !rb.rebooting ? 1000 : 4000);
+}
+
+// ---------- install + offline support ----------
+let deferredInstall = null;
+const standalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); deferredInstall = e; render(); });
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("/app/sw.js", {scope: "/app"}).catch(() => {});
+
+showTab(["home", "apps", "ai", "system", "activity"].includes(tab) ? tab : "home");
+refresh();
+</script>
+</body>
+</html>

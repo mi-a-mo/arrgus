@@ -8,6 +8,7 @@ browser cannot forge them (custom headers force a CORS preflight, which this ser
 import hmac
 import html
 import json
+import re
 import secrets
 import socket
 import threading
@@ -103,10 +104,17 @@ class App:
         return (tpl.replace("{{TITLE}}", html.escape(title)).replace("{{UI}}", self.ui_version())
                    .replace("{{BOOT_JSON}}", json.dumps(boot).replace("</", "<\\/")))
 
+    def render_app(self):
+        tpl = (WEB_DIR / "app" / "app.html").read_text()
+        boot = {"box": self.cfg["box"]["name"], "links": self.cfg["links"], "ui": self.ui_version()}
+        return (tpl.replace("{{UI}}", self.ui_version())
+                   .replace("{{BOOT_JSON}}", json.dumps(boot).replace("</", "<\\/")))
+
     def ui_version(self):
         """Changes whenever the web UI or server code changes, so open tabs know to reload."""
         return str(int(max((WEB_DIR / f).stat().st_mtime for f in
-                           ("dashboard.html", "settings.html", "theme.css", "server.py") if (WEB_DIR / f).exists())))
+                           ("dashboard.html", "settings.html", "theme.css", "server.py", "app/app.html")
+                           if (WEB_DIR / f).exists())))
 
     # ---- settings ----------------------------------------------------------
     def settings_auth(self, token):
@@ -468,6 +476,16 @@ def make_handler(app):
                 return self._send(200, app.render_page(), "text/html")
             if path == "/settings":
                 return self._send(200, app.render_settings(), "text/html")
+            if path in ("/app", "/app/"):
+                return self._send(200, app.render_app(), "text/html")
+            if path.startswith("/app/"):
+                name = path[5:]
+                f = WEB_DIR / "app" / name
+                types = {".png": "image/png", ".js": "text/javascript", ".webmanifest": "application/manifest+json"}
+                if not re.fullmatch(r"[a-z0-9-]+\.(png|js|webmanifest)", name) or not f.is_file():
+                    return self._send(404, {"error": "not found"})
+                extra = {"Service-Worker-Allowed": "/app"} if name == "sw.js" else None
+                return self._send(200, f.read_bytes(), types[f.suffix], headers=extra)
             if path == "/theme.css":
                 return self._send(200, (WEB_DIR / "theme.css").read_text(), "text/css")
             if path == "/api/settings/auth":

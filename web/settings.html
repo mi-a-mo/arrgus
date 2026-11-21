@@ -122,7 +122,7 @@
       <h1 class="wordmark">Arrgus</h1><span class="page">Settings</span>
     </a>
     <div class="buttons">
-      <a class="btn" href="/">← Dashboard</a>
+      <a class="btn" href="/" id="b-back">← Dashboard</a>
       <button class="btn" id="b-logout" hidden>Sign out</button>
     </div>
   </div>
@@ -216,6 +216,11 @@ async function api(path, body) {
   return j;
 }
 $("foot").textContent = `Arrgus on ${BOOT.box} · settings are saved to ${BOOT.overlay}`;
+// opened from the phone app: go back to the app, not the desktop dashboard
+if (new URLSearchParams(location.search).get("from") === "app" || matchMedia("(display-mode: standalone)").matches) {
+  $("b-back").href = "/app"; $("b-back").textContent = "← Back to app";
+  document.querySelector(".brandline").href = "/app";
+}
 
 // ---- sign in / first password ----------------------------------------------------------------
 async function boot() {

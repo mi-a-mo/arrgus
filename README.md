@@ -20,7 +20,8 @@ The code is generic. Everything about a particular box lives in `config/<box>.to
 | `core/settings.py` | Settings page: overlay file, live re-apply, password + sessions, Services view and validation |
 | `core/catalog.py` | Known apps (Plex, Jellyfin, the *arrs, download clients…) used to suggest health checks, links and icons |
 | `core/logbook.py` | JSONL + Markdown log in a git repo, scrubbed of secrets, emails and public IPs, pushed periodically |
-| `web/` | Stdlib HTTP server + single-page dashboard |
+| `web/` | Stdlib HTTP server + single-page dashboard, Settings page, shared `theme.css` |
+| `web/app/` | The installable phone app: page, manifest, service worker, icons |
 | `config/` | One TOML per box (`example.toml` documents every key), plus `<box>.settings.json` from the Settings page |
 | `deploy/` | systemd user unit + installer, optional sudoers rule, Caddy snippet |
 | `box-notes.md` | Durable knowledge the AI reads and appends to |
@@ -80,6 +81,15 @@ still work; Ask AI, Report issue and automatic escalation are turned off.
 ## Dashboard
 Status · System check (full check with auto-fix) · Version check (forced) · Ask AI · Report issue (AI
 troubleshoots and fixes) · pending updates with Approve buttons · live AI transcripts · activity log · Settings.
+
+## Phone app
+`/app` is a separate, installable phone app (a PWA); the desktop dashboard is unchanged. Open
+`https://<your dashboard>/app` on the phone, then iPhone: Safari → Share → **Add to Home Screen**; Android: browser
+menu → **Install app**. It opens full screen with its own icon and has five tabs: **Home** (status, open issues,
+updates with Approve, actions incl. Reboot), **Apps** (your links), **AI** (Ask / Report issue, conversations with
+live replies and follow-ups), **System** (CPU, memory, temperature, drives, checks) and **Activity** (the log).
+Pull down to refresh. When the server can't be reached (e.g. Tailscale is off) it shows the last known status.
+Settings opens the normal Settings page, with a link back to the app. Icons are drawn by `tools/make_icons.py`.
 
 ## Settings page
 `/settings` on the dashboard, protected by its own password (set on first visit; reset on the server with
