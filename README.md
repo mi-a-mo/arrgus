@@ -1,4 +1,4 @@
-# Sentinel
+# Arrgus
 
 An AI monitor for a Docker host. It watches containers, a VPN namespace, drives and the network; fixes known
 problems with scripted playbooks; hands anything new (or any fix that fails) to Claude Opus running headless;
@@ -10,7 +10,7 @@ The code is generic. Everything about a particular box lives in `config/<box>.to
 ## Layout
 | Path | What |
 |---|---|
-| `sentinel.py` | CLI entry point: `serve`, `check [--fix]`, `boot-dryrun`, `versions`, `publish` |
+| `arrgus.py` | CLI entry point: `serve`, `check [--fix]`, `boot-dryrun`, `versions`, `publish` |
 | `core/checks.py` | Health checks: containers, VPN namespace + egress leak, HTTP probes, mounts, bind visibility, disk, DNS/internet/Tailscale, system |
 | `core/fixes.py` | Playbook fixes: compose up, restart, VPN restart and re-attach, mount and restart, systemctl |
 | `core/engine.py` | Check → confirm (15s) → fix → verify → escalate loop; post-reboot sequence; Docker event watcher |
@@ -26,7 +26,7 @@ The code is generic. Everything about a particular box lives in `config/<box>.to
 ## Install on a box
 1. `cp config/example.toml config/<box>.toml` and edit it.
 2. Create the log repo on GitHub (private) and a deploy key with write access:
-   `ssh-keygen -t ed25519 -N '' -f ~/.ssh/sentinel_github`, then add `~/.ssh/sentinel_github.pub` as a deploy key
+   `ssh-keygen -t ed25519 -N '' -f ~/.ssh/arrgus_log_github`, then add `~/.ssh/arrgus_log_github.pub` as a deploy key
    with write access to the repo. Set `[github] remote`.
 3. `deploy/install.sh config/<box>.toml` installs and starts the systemd user service and enables lingering so it
    starts at boot.
@@ -39,7 +39,7 @@ Status · System check (full check with auto-fix) · Version check (forced) · A
 troubleshoots and fixes) · pending updates with Approve buttons · live AI transcripts · activity log.
 
 Access control: the server only listens on an address the proxy can reach, refuses any request without the
-proxy-injected `X-Sentinel-Proxy` secret, and requires `X-Sentinel: 1` + JSON on every POST (CSRF).
+proxy-injected `X-Arrgus-Proxy` secret, and requires `X-Arrgus: 1` + JSON on every POST (CSRF).
 
 ## AI sessions
 Started only by the running service: automatically, for incidents the playbooks can't fix
@@ -48,7 +48,7 @@ from the dashboard. One-shot CLI commands never start an AI session. Transcripts
 
 ## Testing without touching production
 Use a separate state dir and config so tests don't clobber the live service:
-`SENTINEL_STATE_DIR=/tmp/x/state python3 sentinel.py --config /tmp/x/test.toml check`.
+`ARRGUS_STATE_DIR=/tmp/x/state python3 arrgus.py --config /tmp/x/test.toml check`.
 Point `ai.claude_bin` at a stub that prints stream-json to exercise the AI path without calling a model.
 
 ## License

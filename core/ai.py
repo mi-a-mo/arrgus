@@ -25,7 +25,7 @@ _RESULT_BLOCK = re.compile(r"\s*```json\s*\{.*?\}\s*```\s*$", re.S)
 
 
 def strip_result(text):
-    """Remove the trailing machine-readable result block; it is for Sentinel, not for display."""
+    """Remove the trailing machine-readable result block; it is for Arrgus, not for display."""
     return _RESULT_BLOCK.sub("", text or "").rstrip()
 
 
@@ -141,7 +141,7 @@ class AIRunner:
         checks = "\n".join(f"- [{r['status'].upper()}] {r['name']}: {r['detail']}" for r in eng.results) or "(none yet)"
         events = "\n".join(f"- {human_ts(e['ts'])} {e['kind']}: {e['title']}" for e in list(eng.log.recent)[-25:])
         notes = self.notes.read_text() if self.notes.exists() else "(empty)"
-        (self.workspace / "CLAUDE.md").write_text(f"""# You are Sentinel, the autonomous administrator of `{box['name']}`
+        (self.workspace / "CLAUDE.md").write_text(f"""# You are Arrgus, the autonomous administrator of `{box['name']}`
 
 {box.get('description', '')}
 
@@ -151,8 +151,8 @@ docker group). Nobody is watching live: investigate, act, verify, then report.
 ## Key facts
 - Docker Compose project: `{box['compose_dir']}/{box.get('compose_file', 'docker-compose.yml')}`
   (secrets in `{box.get('env_file', '')}`; never print their values).
-- Sentinel's own code: `{ROOT}`; this box's config: `{self.cfg.get('_path', ROOT / 'config.toml')}`. Its event log repo: `{eng.log.dir}` — do not edit it;
-  Sentinel records your session automatically.
+- Arrgus's own code: `{ROOT}`; this box's config: `{self.cfg.get('_path', ROOT / 'config.toml')}`. Its event log repo: `{eng.log.dir}` — do not edit it;
+  Arrgus records your session automatically.
 - Durable knowledge about this box lives in `{self.notes}`. Read it. If you learn something a future
   session should know (root causes, quirks, fixes that worked), append a dated bullet to it.
 - {self.ai.get('sudo_note', 'You have no passwordless sudo. If a fix needs root, say so in `owner_action`.')}
@@ -160,7 +160,7 @@ docker group). Nobody is watching live: investigate, act, verify, then report.
 ## Operating rules
 - Find the root cause before acting (logs: `docker logs --tail 200 <c>`, `docker inspect`, `journalctl`).
 - Prefer the smallest fix that works. Verify it actually worked before you report "fixed".
-- Before editing any file, copy it to `<file>.bak-sentinel-<YYYYMMDD-HHMM>`.
+- Before editing any file, copy it to `<file>.bak-arrgus-<YYYYMMDD-HHMM>`.
 - Never delete media, downloads, or app config/databases. Never pull/upgrade images unless the request asks
   (updates are approved by the owner). Don't reboot unless the request asks or nothing else can work.
 - Keep torrent traffic behind the VPN: if in doubt, stop the torrent client rather than leak.
@@ -168,7 +168,7 @@ docker group). Nobody is watching live: investigate, act, verify, then report.
 ## Current check results
 {checks}
 
-## Recent Sentinel events
+## Recent Arrgus events
 {events}
 
 ## Box notes
@@ -181,7 +181,7 @@ docker group). Nobody is watching live: investigate, act, verify, then report.
                     "(only change things if they ask you to, or if it is part of fixing the reported problem)."
                     "\n\nFollow-up: " + job["request"] + "\n" + RESULT_SPEC)
         if job["kind"] == "incident":
-            body = ("Sentinel's monitoring found the issue(s) below and its scripted fixes did not resolve them "
+            body = ("Arrgus's monitoring found the issue(s) below and its scripted fixes did not resolve them "
                     "(or no scripted fix exists). Diagnose the root cause, fix it, and verify.\n\n" + job["request"])
         elif job["kind"] == "ask":
             body = ("The owner asks the question below. Investigate the live system as needed and answer clearly "
@@ -310,4 +310,4 @@ docker group). Nobody is watching live: investigate, act, verify, then report.
         eng.log.event("ai", f"[{r.get('status', '?')}] {job['title']}", detail, level=level, push=True,
                       data={"job": job["id"]})
         if r.get("status") in ("not_fixed", "needs_owner", "partially_fixed"):
-            eng.notify(f"Sentinel AI needs you on {self.cfg['box']['name']}", detail[:800])
+            eng.notify(f"Arrgus AI needs you on {self.cfg['box']['name']}", detail[:800])

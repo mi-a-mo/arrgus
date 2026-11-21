@@ -191,7 +191,7 @@
 const BOOT = {{BOOT_JSON}};
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-let S = null, openGroups = JSON.parse(safeGet("sentinel.groups") || "{}");
+let S = null, openGroups = JSON.parse(safeGet("arrgus.groups") || "{}");
 function safeGet(k) { try { return localStorage.getItem(k); } catch { return null; } }
 function safeSet(k, v) { try { localStorage.setItem(k, v); } catch {} }
 
@@ -253,7 +253,7 @@ function renderSystem(sys) {
 
 function progressHtml(p) {
   if (!p || !p.items || !p.items.length) return "";
-  if (!p.active && safeGet("sentinel.progress.dismissed") === p.finished) return "";
+  if (!p.active && safeGet("arrgus.progress.dismissed") === p.finished) return "";
   const icon = {ok: "ok", failed: "fail", rolled_back: "warn", running: "info", pending: ""};
   const word = {ok: "done", failed: "failed", rolled_back: "rolled back", running: "in progress", pending: "waiting"};
   const overallCls = p.active ? "" : p.ok ? "ok" : "warn";
@@ -272,7 +272,7 @@ function progressHtml(p) {
 function toast(msg) { const t = $("toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 3500); }
 
 async function api(path, body) {
-  const opt = body === undefined ? {} : {method: "POST", headers: {"X-Sentinel": "1", "Content-Type": "application/json"}, body: JSON.stringify(body)};
+  const opt = body === undefined ? {} : {method: "POST", headers: {"X-Arrgus": "1", "Content-Type": "application/json"}, body: JSON.stringify(body)};
   const r = await fetch(path, opt);
   const d = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(d.error || ("HTTP " + r.status));
@@ -375,7 +375,7 @@ function render() {
     <span class="ts">${esc(when(e.ts))}</span></div>`).join("") : `<div class="empty">No events yet.</div>`;
 
   const p = s.push || {};
-  $("foot").textContent = `Sentinel on ${s.box} · up since ${when(s.started)} · ` +
+  $("foot").textContent = `Arrgus on ${s.box} · up since ${when(s.started)} · ` +
     (!s.remote ? "log not linked to GitHub yet" : p.ok === null ? "log not pushed yet" : p.ok ? `log pushed ${ago(p.at)}` : "log push FAILING");
 }
 
@@ -390,13 +390,13 @@ async function refresh(manual) {
   try {
     S = await api("/api/status");
     if (BOOT.ui && S.ui && S.ui !== BOOT.ui) {
-      // Sentinel was updated: reload now, or as soon as the AI window is closed.
+      // Arrgus was updated: reload now, or as soon as the AI window is closed.
       if (!modal.classList.contains("open")) return location.reload();
-      if (!$("update-note")) $("job-fu")?.insertAdjacentHTML("afterend", `<div id="update-note" class="hint" style="margin-top:8px">Sentinel was updated. The page will reload when you close this window.</div>`);
+      if (!$("update-note")) $("job-fu")?.insertAdjacentHTML("afterend", `<div id="update-note" class="hint" style="margin-top:8px">Arrgus was updated. The page will reload when you close this window.</div>`);
     }
     render();
     if (manual) toast("Status refreshed");
-  } catch (e) { $("overall").textContent = "Sentinel unreachable"; $("meta").textContent = e.message; $("dot").className = "dot"; }
+  } catch (e) { $("overall").textContent = "Arrgus unreachable"; $("meta").textContent = e.message; $("dot").className = "dot"; }
   clearTimeout(pollTimer);
   const busy = S && ((S.reboot || {}).scheduled || S.actions.some((a) => a.status === "running") || S.ai.current || (S.updates.progress || {}).active);
   pollTimer = setTimeout(refresh, busy ? 2500 : 10000);
@@ -415,13 +415,13 @@ $("b-versions").onclick = async () => {
 document.addEventListener("click", async (ev) => {
   const g = ev.target.closest("[data-group]");
   if (g) { const k = g.dataset.group, cur = openGroups[k] ?? (g.textContent.includes("failing") || g.textContent.includes("warn"));
-           openGroups[k] = !cur; safeSet("sentinel.groups", JSON.stringify(openGroups)); render(); return; }
+           openGroups[k] = !cur; safeSet("arrgus.groups", JSON.stringify(openGroups)); render(); return; }
   const dm = ev.target.closest("[data-dismiss]");
-  if (dm) { safeSet("sentinel.progress.dismissed", dm.dataset.dismiss); return render(); }
+  if (dm) { safeSet("arrgus.progress.dismissed", dm.dataset.dismiss); return render(); }
   const a = ev.target.closest("[data-approve]");
   if (a) {
     const svcs = a.dataset.approve.split(",");
-    if (!confirm(`Update ${svcs.join(", ")}?\n\nSentinel pulls the new image, recreates the container, health-checks it and rolls back if it fails.`)) return;
+    if (!confirm(`Update ${svcs.join(", ")}?\n\nArrgus pulls the new image, recreates the container, health-checks it and rolls back if it fails.`)) return;
     try { await api("/api/updates/approve", {services: svcs}); toast("Update started: " + svcs.join(", ")); } catch (e) { toast(e.message); }
     return refresh();
   }
@@ -474,7 +474,7 @@ async function rebootPoll() {
   try { st = await api("/api/status"); } catch {}
   const el = (id) => document.getElementById(id), secs = Math.round((Date.now() - (rbSince || Date.now())) / 1000);
   const mmss = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
-  if (st && rbStarted && st.started !== rbStarted) {          // a new Sentinel process: the box is back
+  if (st && rbStarted && st.started !== rbStarted) {          // a new Arrgus process: the box is back
     if (el("rb-count")) { el("rb-count").textContent = "Back up"; el("rb-hint").textContent = `Took ${mmss}. Reloading…`; }
     return setTimeout(() => location.reload(), 2500);
   }
@@ -483,7 +483,7 @@ async function rebootPoll() {
   if (el("rb-count")) {
     if (rb && rb.scheduled && !rb.rebooting) {
       el("rb-count").textContent = rb.scheduled.seconds_left + "s";
-      el("rb-hint").textContent = "Rebooting soon. Sentinel pushes the log to GitHub first.";
+      el("rb-hint").textContent = "Rebooting soon. Arrgus pushes the log to GitHub first.";
     } else {
       el("rb-count").innerHTML = `<span class="spin" style="width:28px;height:28px;border-width:3px"></span>`;
       el("rb-hint").textContent = `Rebooting… waiting for the server to come back (${mmss}). This page reloads by itself.`;
@@ -561,7 +561,7 @@ function turnHtml(j, i, n) {
   if (!live && j.result_text && !j.transcript.some((s) => s.type === "text" && s.text)) body = `<div class="t-text">${esc(j.result_text)}</div>` + body;
   const progress = j.status === "queued" ? "Queued: waiting for another AI session to finish…"
     : j.status === "running" ? `<span class="spin"></span> Working${steps ? ` · ${steps} step${steps > 1 ? "s" : ""}` : ""}…` : "";
-  const r = j.result || (j.status === "interrupted" ? {status: "interrupted", summary: "Sentinel restarted while this was running."} : null);
+  const r = j.result || (j.status === "interrupted" ? {status: "interrupted", summary: "Arrgus restarted while this was running."} : null);
   let card = "";
   if (!live && r && (r.status !== "answered" || (r.actions || []).length || r.owner_action)) {
     const acts = r.actions || [];

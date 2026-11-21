@@ -1,8 +1,8 @@
-"""Dependency-free HTTP dashboard + JSON API for Sentinel.
+"""Dependency-free HTTP dashboard + JSON API for Arrgus.
 
 Security model: the server binds to a private address that only the reverse proxy can reach, and every
-request except /healthz must carry the X-Sentinel-Proxy header with the shared secret that the proxy
-injects. POSTs additionally need `X-Sentinel: 1` and a JSON body, so a third-party page in the owner's
+request except /healthz must carry the X-Arrgus-Proxy header with the shared secret that the proxy
+injects. POSTs additionally need `X-Arrgus: 1` and a JSON body, so a third-party page in the owner's
 browser cannot forge them (custom headers force a CORS preflight, which this server never approves).
 """
 import hmac
@@ -234,7 +234,7 @@ def _summary(results):
 
 def make_handler(app):
     class Handler(BaseHTTPRequestHandler):
-        server_version = "Sentinel"
+        server_version = "Arrgus"
         sys_version = ""
 
         def log_message(self, fmt, *args):
@@ -258,7 +258,7 @@ def make_handler(app):
                 self.wfile.write(body)
 
         def _authorized(self):
-            got = self.headers.get("X-Sentinel-Proxy", "")
+            got = self.headers.get("X-Arrgus-Proxy", "")
             return hmac.compare_digest(got.encode(), app.secret.encode())
 
         def _body(self):
@@ -314,8 +314,8 @@ def make_handler(app):
             path = urlparse(self.path).path
             if not self._authorized():
                 return self._send(403, {"error": "forbidden"})
-            if self.headers.get("X-Sentinel") != "1" or "json" not in (self.headers.get("Content-Type") or ""):
-                return self._send(400, {"error": "missing X-Sentinel header or JSON content type"})
+            if self.headers.get("X-Arrgus") != "1" or "json" not in (self.headers.get("Content-Type") or ""):
+                return self._send(400, {"error": "missing X-Arrgus header or JSON content type"})
             try:
                 body = self._body()
             except ValueError as e:

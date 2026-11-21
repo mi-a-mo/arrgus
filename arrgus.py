@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Sentinel: AI monitor for a Docker host.
+"""Arrgus: AI monitor for a Docker host.
 
-  sentinel.py serve            run the monitor + web dashboard (what the systemd unit runs)
-  sentinel.py check [--fix]    run one check cycle and print results (no fixes unless --fix)
-  sentinel.py boot-dryrun      run the post-reboot sequence now, without applying fixes
-  sentinel.py versions         run an image/OS update check and print what is pending
-  sentinel.py publish          commit and push the log repo now
+  arrgus.py serve            run the monitor + web dashboard (what the systemd unit runs)
+  arrgus.py check [--fix]    run one check cycle and print results (no fixes unless --fix)
+  arrgus.py boot-dryrun      run the post-reboot sequence now, without applying fixes
+  arrgus.py versions         run an image/OS update check and print what is pending
+  arrgus.py publish          commit and push the log repo now
 
-The box-specific config comes from SENTINEL_CONFIG or --config (default: ./config.toml).
+The box-specific config comes from ARRGUS_CONFIG or --config (default: ./config.toml).
 """
 import argparse
 import logging
@@ -30,8 +30,8 @@ def print_results(results):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Sentinel Docker-host monitor")
-    ap.add_argument("--config", help="path to the box config (overrides SENTINEL_CONFIG)")
+    ap = argparse.ArgumentParser(description="Arrgus Docker-host monitor")
+    ap.add_argument("--config", help="path to the box config (overrides ARRGUS_CONFIG)")
     ap.add_argument("-v", "--verbose", action="store_true")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("serve")

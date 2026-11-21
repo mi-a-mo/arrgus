@@ -9,12 +9,12 @@ import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-STATE_DIR = Path(os.environ.get("SENTINEL_STATE_DIR") or ROOT / "state")
-log = logging.getLogger("sentinel")
+STATE_DIR = Path(os.environ.get("ARRGUS_STATE_DIR") or ROOT / "state")
+log = logging.getLogger("arrgus")
 
 
 def load_config(path=None):
-    p = Path(path or os.environ.get("SENTINEL_CONFIG") or ROOT / "config.toml")
+    p = Path(path or os.environ.get("ARRGUS_CONFIG") or ROOT / "config.toml")
     cfg = tomllib.loads(p.read_text())
     cfg["_path"] = str(p)
     cfg.setdefault("checks", {})

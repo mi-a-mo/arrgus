@@ -169,7 +169,7 @@ class Engine:
         self.state.data["status_sig"], self.state.data["status_day"] = sig, day
         icon = {"ok": "🟢", "warn": "🟡", "fail": "🔴"}
         lines = [f"# {self.cfg['box']['name']} — {icon.get(self.overall(), '⚪')} {self.overall().upper()}", "",
-                 f"_Snapshot written {human_ts()} by Sentinel. Updated when anything changes, and at least daily._", ""]
+                 f"_Snapshot written {human_ts()} by Arrgus. Updated when anything changes, and at least daily._", ""]
         inc = self.state.data["incidents"]
         if inc:
             lines += ["## Open issues", ""] + [f"- **{i['name']}**: {i['detail']} (since {human_ts(i['opened'])})"
@@ -261,11 +261,11 @@ class Engine:
         req = datetime.fromisoformat(d["requested"]) if d.get("requested") else None
         booted = time.time() - uptime_seconds()
         if not req or booted < req.timestamp():
-            return  # Sentinel restarted, but the host never rebooted
+            return  # Arrgus restarted, but the host never rebooted
         _, kernel, _ = sh(["uname", "-r"])
         down = booted - req.timestamp()
         kern = f"kernel {d.get('kernel')} → {kernel}" if d.get("kernel") and d["kernel"] != kernel else f"kernel {kernel} (unchanged)"
-        self.log.event("boot", f"Reboot completed: Sentinel back {duration(down + uptime_seconds())} after the request; {kern}",
+        self.log.event("boot", f"Reboot completed: Arrgus back {duration(down + uptime_seconds())} after the request; {kern}",
                        f"Requested {human_ts(d['requested'])} by {d.get('by', 'owner')}.", level="ok", push=True)
 
     # ---- loops -----------------------------------------------------------
@@ -294,7 +294,7 @@ class Engine:
                                    f"{len(self.state.data['incidents'])} open issue(s)",
                            detail, level="ok" if not self.state.data["incidents"] else "error", push=True)
         else:
-            self.log.event("info", "Sentinel started", f"Host up {duration(up)}")
+            self.log.event("info", "Arrgus started", f"Host up {duration(up)}")
             self.check_cycle("startup")
 
     def monitor_loop(self):

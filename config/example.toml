@@ -1,4 +1,4 @@
-# Example Sentinel config for a new box. Copy to config/<box>.toml and edit.
+# Example Arrgus config for a new box. Copy to config/<box>.toml and edit.
 # Only [box] is required; every other section has defaults.
 
 [box]
@@ -38,12 +38,12 @@ auto_escalate = true
 model = "claude-opus-5-5"
 claude_bin = "~/.local/bin/claude"
 permission_mode = "bypassPermissions"   # or "acceptEdits" / "default" with allowed_tools = [...]
-notes_file = "/home/me/sentinel/box-notes-mybox.md"
+notes_file = "/home/me/arrgus/box-notes-mybox.md"
 
 [github]
-log_dir = "/home/me/sentinel-mybox-log"
-remote = ""                          # git@github.com:<user>/sentinel-mybox-log.git (private)
-ssh_key = "~/.ssh/sentinel_github"
+log_dir = "/home/me/arrgus-mybox-log"
+remote = ""                          # git@github.com:<user>/arrgus-mybox-log.git (private)
+ssh_key = "~/.ssh/arrgus_log_github"
 
 [web]
 listen = "127.0.0.1"                 # an address only your reverse proxy can reach

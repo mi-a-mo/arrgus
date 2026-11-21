@@ -69,7 +69,7 @@ class Logbook:
     def __init__(self, cfg):
         gh = cfg["github"]
         self.box = cfg["box"]["name"]
-        self.dir = Path(gh.get("log_dir") or Path.home() / f"sentinel-{self.box}")
+        self.dir = Path(gh.get("log_dir") or Path.home() / f"arrgus-{self.box}")
         self.remote = gh.get("remote", "")
         self.key = os.path.expanduser(gh.get("ssh_key", "")) if gh.get("ssh_key") else ""
         self.scrub = Scrubber(cfg)
@@ -93,8 +93,8 @@ class Logbook:
         self.dir.mkdir(parents=True, exist_ok=True)
         if not (self.dir / ".git").exists():
             sh(["git", "init", "-b", "main", str(self.dir)])
-        self._git("config", "user.name", f"sentinel@{self.box}")
-        self._git("config", "user.email", f"sentinel@{self.box}.local")
+        self._git("config", "user.name", f"arrgus@{self.box}")
+        self._git("config", "user.email", f"arrgus@{self.box}.local")
         if self.remote:
             rc, out, _ = self._git("remote", "get-url", "origin")
             if rc:
@@ -104,8 +104,8 @@ class Logbook:
         readme = self.dir / "README.md"
         if not readme.exists():
             readme.write_text(
-                f"# Sentinel log — {self.box}\n\n"
-                "Automatically maintained by Sentinel, the AI monitor for this box.\n\n"
+                f"# Arrgus log — {self.box}\n\n"
+                "Automatically maintained by Arrgus, the AI monitor for this box.\n\n"
                 "- [`STATUS.md`](STATUS.md): current health snapshot\n"
                 "- [`log/`](log/): monthly human-readable log of issues, fixes, updates and boots\n"
                 "- [`events/`](events/): the same events as JSON Lines\n"
@@ -167,7 +167,7 @@ class Logbook:
                 rc, out, _ = self._git("status", "--porcelain")
                 if out:
                     n = len(out.splitlines())
-                    self._git("commit", "-q", "-m", f"sentinel: update log ({n} file{'s' if n != 1 else ''})")
+                    self._git("commit", "-q", "-m", f"arrgus: update log ({n} file{'s' if n != 1 else ''})")
                 self.dirty = False
         if not self.remote:
             return

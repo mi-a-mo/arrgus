@@ -61,7 +61,7 @@ class Registry:
         url = f"https://{reg}/v2/{repo}/{path}"
         key = (reg, repo)
         for attempt in range(2):
-            headers = {"Accept": accept, "User-Agent": "sentinel-monitor"}
+            headers = {"Accept": accept, "User-Agent": "arrgus-monitor"}
             if self.tokens.get(key):
                 headers["Authorization"] = f"Bearer {self.tokens[key]}"
             try:
@@ -185,7 +185,7 @@ class Updater:
             self.engine.log.event("update", f"{len(newly)} container update(s) available — awaiting approval",
                                   "\n".join(lines), level="notice", push=True)
             self.engine.notify(f"{len(newly)} update(s) available on {self.cfg['box']['name']}",
-                               "\n".join(lines) + "\nApprove them in the Sentinel dashboard.")
+                               "\n".join(lines) + "\nApprove them in the Arrgus dashboard.")
         prev_os = self.engine.state.data.get("os_reported", 0)
         if os_info["count"] and os_info["count"] != prev_os:
             self.engine.log.event("update", f"{os_info['count']} OS package update(s) available "
@@ -327,7 +327,7 @@ class Updater:
         inv, _ = docker_inventory()
         old_id = (inv or {}).get(cname, {}).get("image_id")
         before = self.state.get("images", {}).get(svc, {}).get("current")
-        rb_tag = f"sentinel-rollback/{svc}:previous"
+        rb_tag = f"arrgus-rollback/{svc}:previous"
         if old_id:
             sh(["docker", "tag", old_id, rb_tag])
         rc, out = self._pull(svc, s["build"])
