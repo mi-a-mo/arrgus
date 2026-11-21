@@ -10,8 +10,8 @@
 <style>
   /* Arrgus theme: Argus Panoptes — peacock blue-teal, iridescent eyes, Hera's gold */
   :root {
-    --bg0: #050f16; --bg1: #0c2e38; --card: #0b1b24f0; --card2: #11262f; --line: #1d3943; --line-hi: #2b5260;
-    --text: #eee7d4; --muted: #8ea8ae; --accent: #d9b45a; --accent-hi: #f0d18a; --accent-soft: #d9b45a22;
+    --bg0: #050f16; --bg1: #0c2e38; --card: #0b1b24; --card2: #11262f; --line: #1d3943; --line-hi: #2b5260;
+    --text: #eee7d4; --muted: #a9bfc4; --accent: #d9b45a; --accent-hi: #f0d18a; --accent-soft: #d9b45a22;
     --accent-ink: #171003; --teal: #2fb8a8; --sapphire: #3f7fe0;
     --ok: #4fd18f; --warn: #f0b44c; --fail: #ff6b5e; --info: #6fb3ee;
     --brass-line: linear-gradient(90deg, transparent, #2fb8a866 18%, #f0d18aaa 50%, #3f7fe066 82%, transparent);
@@ -210,6 +210,30 @@
   .tile2 { border-top: 1px solid #d9b45a44; }
   .chip { border: 1px solid currentColor; background: transparent; opacity: .9; }
   .t-user { border-left: 2px solid var(--teal); }
+
+  /* legibility: larger text, Roman capitals only on headings, plain sans on controls and data */
+  body { font-size: 15px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+  p.sub { font-size: 14px; }
+  h2 { font-size: 14px; letter-spacing: .12em; }
+  .btn { font: 600 14px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; letter-spacing: .01em; text-transform: none; padding: 9px 15px; }
+  .btn.small { font-size: 13px; padding: 6px 11px; }
+  .state .big { font-size: 22px; }
+  .state .meta, .row .detail, .tile2 .sub { font-size: 13.5px; }
+  .row .name { font-weight: 600; }
+  .row { padding: 10px 0; }
+  .group-h { font-size: 13px; letter-spacing: .07em; }
+  .chip { font-size: 12px; padding: 1px 8px; background: #ffffff0d; }
+  .ts { font-size: 13px; color: #b3c6ca; }
+  .tile2 .lbl { font-size: 12.5px; letter-spacing: .08em; }
+  .tile2 .val { font-size: 24px; }
+  pre.ev { font-size: 13px; line-height: 1.5; color: #c9d1d9; }
+  .t-tool { font-size: 13px; } details.t-out pre { font-size: 12.5px; color: #b8c2cc; }
+  details.t-out summary, .turn-bar, .tr-bar { font-size: 13px; }
+  .modal .hint, .empty { font-size: 14px; }
+  .empty { font-style: normal; }
+  a.tile { font-size: 14px; font-weight: 600; }
+  .foot { font-size: 13px; }
+  textarea { font-size: 15px; line-height: 1.5; }
 </style>
 </head>
 <body>
