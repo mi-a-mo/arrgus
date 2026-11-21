@@ -44,7 +44,8 @@
   .detail { margin: 10px 0 0 42px; display: grid; gap: 8px; }
   .detail .line { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: end; }
   .detail .line3 { display: grid; grid-template-columns: 160px 1fr; gap: 8px; }
-  .detail .sec { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--accent); margin-top: 4px; }
+  .sec { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--accent); margin-top: 4px; }
+  .keyrow { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
   .probe { font-size: 13px; color: var(--muted); }
   .probe.ok { color: var(--ok); } .probe.fail { color: var(--fail); }
   .hintline { font-size: 12.5px; color: var(--muted); }
@@ -88,6 +89,7 @@
   <div id="app" hidden>
     <div class="tabs" role="tablist">
       <button class="btn" role="tab" data-tab="services" aria-selected="true">Services</button>
+      <button class="btn" role="tab" data-tab="logs" aria-selected="false">Logs &amp; GitHub</button>
       <button class="btn" role="tab" data-tab="security" aria-selected="false">Password</button>
     </div>
 
@@ -113,6 +115,21 @@
       <div class="savebar" id="savebar" hidden>
         <span id="save-msg">Unsaved changes</span>
         <span class="buttons"><button class="btn" id="b-discard">Discard</button><button class="btn primary" id="b-save">Save</button></span>
+      </div>
+    </section>
+
+    <section id="tab-logs" hidden>
+      <div class="card">
+        <h2>Download logs</h2>
+        <p class="lead">Everything Arrgus has recorded on this box: issues, fixes, updates, reboots and every AI session.
+          Secrets, e-mail addresses and public IPs are already scrubbed out.</p>
+        <div id="logs"><div class="empty">Loading…</div></div>
+      </div>
+      <div class="card">
+        <h2>GitHub</h2>
+        <p class="lead">Arrgus can push the log to a <b>private</b> GitHub repo after every change, so you have a copy off the
+          box. It uses a deploy key: a key that can only reach that one repo.</p>
+        <div id="gh"><div class="empty">Loading…</div></div>
       </div>
     </section>
 
@@ -181,7 +198,8 @@ $("b-logout").onclick = async () => { await api("/api/settings/logout", {}); sho
 // ---- tabs --------------------------------------------------------------------------------------
 document.querySelectorAll("[data-tab]").forEach((b) => b.onclick = () => {
   document.querySelectorAll("[data-tab]").forEach((x) => x.setAttribute("aria-selected", x === b));
-  ["services", "security"].forEach((t) => $("tab-" + t).hidden = t !== b.dataset.tab);
+  ["services", "logs", "security"].forEach((t) => $("tab-" + t).hidden = t !== b.dataset.tab);
+  if (b.dataset.tab === "logs") loadLogs();
 });
 
 // ---- services ----------------------------------------------------------------------------------
@@ -298,6 +316,98 @@ $("b-save").onclick = async () => {
   } catch (err) { $("save-msg").textContent = err.message; $("save-msg").className = "err"; $("savebar").hidden = false; }
   b.disabled = false;
 };
+// ---- logs + GitHub ----------------------------------------------------------------------------
+const kb = (n) => n < 1024 ? `${n} B` : n < 1048576 ? `${(n / 1024).toFixed(n < 10240 ? 1 : 0)} KB` : `${(n / 1048576).toFixed(1)} MB`;
+const when = (iso) => iso ? new Date(iso).toLocaleString([], {dateStyle: "medium", timeStyle: "short"}) : "never";
+function monthName(m) { const [y, mo] = m.split("-"); return new Date(+y, +mo - 1, 1).toLocaleString([], {month: "long", year: "numeric"}); }
+let GH = null;
+async function loadLogs() {
+  try {
+    const [L, G] = await Promise.all([api("/api/settings/logs"), api("/api/settings/github")]);
+    GH = G; renderLogs(L); renderGH();
+  } catch (e) { $("logs").innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+}
+function renderLogs(L) {
+  $("logs").innerHTML = `
+    <div class="row"><div class="grow"><div class="name">Everything</div>
+      <div class="detail">${kb(L.total)} · ${L.months.length} month${L.months.length === 1 ? "" : "s"} · ${L.ai_sessions} AI session${L.ai_sessions === 1 ? "" : "s"}</div>
+      ${L.has_box ? `<label class="tg" style="margin-top:8px"><input type="checkbox" id="dl-box"> Include box backups (config, compose file, notes)</label>` : ""}</div>
+      <a class="btn primary" id="dl-all" href="/api/settings/logs/download">Download .zip</a></div>
+    ${L.months.map((m) => `<div class="row"><div class="grow"><div class="name">${esc(monthName(m.month))}</div>
+      <div class="detail">readable log ${kb(m.md)} · event data ${kb(m.jsonl)}</div></div>
+      <span class="buttons">${m.md ? `<a class="btn small" href="/api/settings/logs/download?month=${esc(m.month)}&fmt=md" title="Markdown: easy to read">Log (.md)</a>` : ""}
+      ${m.jsonl ? `<a class="btn small" href="/api/settings/logs/download?month=${esc(m.month)}&fmt=jsonl" title="One JSON event per line: for scripts and spreadsheets">Data (.jsonl)</a>` : ""}</span></div>`).join("")}
+    <p class="hintline" style="margin-top:10px">Stored on the server in <code>${esc(L.dir)}</code>.</p>`;
+  $("dl-box")?.addEventListener("change", (e) => $("dl-all").href = "/api/settings/logs/download" + (e.target.checked ? "?box=1" : ""));
+}
+function renderGH() {
+  const g = GH, k = g.key, lp = g.last_push;
+  const status = !g.remote ? `<span class="chip">not connected</span>`
+    : !g.push_enabled ? `<span class="chip warn">pushing off</span>`
+    : lp.ok === false ? `<span class="chip fail">last push failed</span>` : `<span class="chip ok">connected</span>`;
+  $("gh").innerHTML = `
+    <div class="row"><div class="grow"><div class="name">Status ${status}</div>
+      <div class="detail">${g.remote ? `<code>${esc(g.remote)}</code> · ` : ""}last push: ${lp.at ? when(lp.at) + (lp.ok ? " ✓" : " ✗ " + esc(lp.error || "")) : "not since Arrgus started"}
+        ${g.remote && g.push_enabled ? ` · pushes within ${Math.round(g.push_interval / 60)} min of each change` : ""}</div></div>
+      ${g.remote && g.push_enabled ? `<button class="btn small" id="gh-push">Push now</button>` : ""}</div>
+
+    <div class="sec" style="margin-top:14px">1 · Deploy key</div>
+    ${k.exists ? `<p class="hintline" style="margin:6px 0">Add this public key to the repo on GitHub: <b>Settings → Deploy keys → Add deploy key</b>,
+        and tick <b>Allow write access</b>.</p>
+        <div class="keyrow">
+          <input type="text" id="gh-pub" readonly value="${esc(k.public)}" aria-label="Public deploy key">
+          <button class="btn small" id="gh-copy">Copy</button></div>
+        <p class="hintline">Private key: <code>${esc(k.path)}</code> (stays on this server).</p>`
+      : `<p class="hintline" style="margin:6px 0">No deploy key yet. Arrgus will create one at <code>${esc(k.path)}</code>.</p>
+         <button class="btn small" id="gh-gen">Create deploy key</button>`}
+
+    <div class="sec" style="margin-top:14px">2 · Repository</div>
+    <p class="hintline" style="margin:6px 0">Create an empty <b>private</b> repo on GitHub, then enter it here.</p>
+    <label class="f" for="gh-remote">Repository</label>
+    <input type="text" id="gh-remote" value="${esc(g.remote)}" placeholder="your-name/arrgus-${esc(BOOT.box)}-log" spellcheck="false" autocapitalize="off">
+    <label class="tg" style="margin-top:10px"><input type="checkbox" id="gh-on" ${g.push_enabled || !g.remote ? "checked" : ""}> Push the log to this repo</label>
+    <div class="err" id="gh-err"></div><div class="probe" id="gh-msg"></div>
+    <div class="buttons" style="margin-top:8px">
+      <button class="btn" id="gh-test" ${k.exists ? "" : "disabled"}>Test connection</button>
+      <button class="btn primary" id="gh-save">Save</button>
+      ${g.remote ? `<button class="btn danger" id="gh-disc">Disconnect</button>` : ""}</div>`;
+  $("gh-copy")?.addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(k.public); toast("Public key copied."); }
+    catch { $("gh-pub").select(); toast("Press Ctrl+C / ⌘C to copy."); }
+  });
+  $("gh-gen")?.addEventListener("click", async (e) => {
+    e.target.disabled = true;
+    try { const r = await api("/api/settings/github/key", {}); GH.key = r.key; renderGH(); toast("Deploy key created."); }
+    catch (err) { $("gh-err").textContent = err.message; e.target.disabled = false; }
+  });
+  const msg = (t, ok) => { $("gh-err").textContent = ok === false ? t : ""; $("gh-msg").className = "probe" + (ok ? " ok" : "");
+                           $("gh-msg").textContent = ok === false ? "" : t; };
+  $("gh-test").onclick = async (e) => {
+    e.target.disabled = true; msg("Testing…");
+    try { const r = await api("/api/settings/github/test", {remote: $("gh-remote").value});
+          $("gh-remote").value = r.remote; msg((r.ok ? "✓ " : "") + r.detail, r.ok ? true : false); }
+    catch (err) { msg(err.message, false); }
+    e.target.disabled = false;
+  };
+  $("gh-save").onclick = async (e) => {
+    e.target.disabled = true; msg("Saving… (testing the connection first)");
+    try { const r = await api("/api/settings/github", {remote: $("gh-remote").value, push_enabled: $("gh-on").checked});
+          GH = r.github; renderGH(); toast("GitHub settings saved."); }
+    catch (err) { msg(err.message, false); e.target.disabled = false; }
+  };
+  $("gh-disc")?.addEventListener("click", async () => {
+    if (!confirm("Stop pushing the log to GitHub? The log keeps being written on this server, and nothing is deleted from GitHub.")) return;
+    try { const r = await api("/api/settings/github", {remote: "", push_enabled: false}); GH = r.github; renderGH(); toast("Disconnected from GitHub."); }
+    catch (err) { msg(err.message, false); }
+  });
+  $("gh-push")?.addEventListener("click", async (e) => {
+    e.target.disabled = true; e.target.textContent = "Pushing…";
+    try { const r = await api("/api/settings/github/push", {}); GH.last_push = r.last_push; renderGH();
+          toast(r.last_push.ok ? "Pushed to GitHub." : "Push failed: " + (r.last_push.error || "")); }
+    catch (err) { toast(err.message); e.target.disabled = false; e.target.textContent = "Push now"; }
+  });
+}
+
 // ---- password ----------------------------------------------------------------------------------
 $("b-pw").onclick = async () => {
   const cur = $("pw-cur").value, n1 = $("pw-new").value, n2 = $("pw-new2").value;

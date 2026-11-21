@@ -27,9 +27,9 @@ The code is generic. Everything about a particular box lives in `config/<box>.to
 
 ## Install on a box
 1. `cp config/example.toml config/<box>.toml` and edit it.
-2. Create the log repo on GitHub (private) and a deploy key with write access:
-   `ssh-keygen -t ed25519 -N '' -f ~/.ssh/arrgus_log_github`, then add `~/.ssh/arrgus_log_github.pub` as a deploy key
-   with write access to the repo. Set `[github] remote`.
+2. Optional: connect a private GitHub repo for the log, either later from **Settings → Logs & GitHub**, or by hand:
+   `ssh-keygen -t ed25519 -N '' -f ~/.ssh/arrgus_log_github`, add `~/.ssh/arrgus_log_github.pub` to the repo as a
+   deploy key with write access, and set `[github] remote`. Without a repo the log is kept on the box only.
 3. `deploy/install.sh config/<box>.toml` installs and starts the systemd user service and enables lingering so it
    starts at boot.
 4. Point the reverse proxy at `web.listen:web.port` and add the header from `deploy/Caddyfile.snippet`
@@ -77,6 +77,9 @@ troubleshoots and fixes) · pending updates with Approve buttons · live AI tran
   HTTP health check (with a Test button), and shows it as a dashboard link. Known apps get suggested health-check
   URLs, link addresses and icons, so swapping Plex for Jellyfin or dropping Audiobookshelf is a few clicks.
   Links to things that aren't containers (a router, another server) go under *Other links*.
+- **Logs & GitHub:** download the whole log as a zip (optionally with the box backups), or one month as Markdown
+  or JSON Lines. Connect a GitHub repo for off-box copies: create a deploy key, enter `owner/repo`, test read and
+  write access, turn pushing on or off, or push now. A repo that fails the test is never saved.
 - **Password:** change the Settings password.
 
 Changes are saved to `config/<box>.settings.json`, which overrides the same keys in the TOML (the TOML itself is

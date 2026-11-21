@@ -286,3 +286,127 @@ def save(cfg, changes, load_config):
     os.replace(tmp, path)
     fresh = load_config(cfg["_path"])
     sync(cfg, fresh)
+
+
+# ---- GitHub log repo ------------------------------------------------------------------------------
+DEFAULT_KEY = "~/.ssh/arrgus_log_github"
+_SSH_REMOTE = re.compile(r"^git@([A-Za-z0-9.-]+):([A-Za-z0-9._-]+)/([A-Za-z0-9._-]+?)(\.git)?$")
+_HTTPS_REMOTE = re.compile(r"^https://([A-Za-z0-9.-]+)/([A-Za-z0-9._-]+)/([A-Za-z0-9._-]+?)(\.git)?/?$")
+_SHORT_REMOTE = re.compile(r"^([A-Za-z0-9._-]+)/([A-Za-z0-9._-]+?)(\.git)?$")
+
+
+def normalize_remote(v):
+    """Accept git@host:owner/repo(.git), https://host/owner/repo or owner/repo (GitHub); return the SSH form.
+    Deploy keys only work over SSH, so https addresses are converted."""
+    v = (v or "").strip()
+    if not v:
+        return ""
+    for rx, host_group in ((_SSH_REMOTE, True), (_HTTPS_REMOTE, True), (_SHORT_REMOTE, False)):
+        m = rx.match(v)
+        if m:
+            host, owner, repo = (m.group(1), m.group(2), m.group(3)) if host_group else ("github.com", m.group(1), m.group(2))
+            if owner.startswith("-") or repo.startswith("-") or repo in (".", ".."):
+                break
+            return f"git@{host}:{owner}/{repo}.git"
+    raise ValueError("repository: use owner/repo, https://github.com/owner/repo or git@github.com:owner/repo.git")
+
+
+def key_path(cfg):
+    return Path(os.path.expanduser(cfg.get("github", {}).get("ssh_key") or DEFAULT_KEY))
+
+
+def key_info(cfg):
+    p = key_path(cfg)
+    pub = p.with_name(p.name + ".pub")
+    return {"path": str(p), "exists": p.exists(), "public": pub.read_text().strip() if pub.exists() else ""}
+
+
+def generate_key(cfg, sh):
+    p = key_path(cfg)
+    if p.exists():
+        raise ValueError(f"a key already exists at {p}; it was not replaced")
+    p.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    rc, _, err = sh(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-C", f"arrgus-log@{cfg['box']['name']}", "-f", str(p)])
+    if rc:
+        raise RuntimeError(f"ssh-keygen failed: {err[:300]}")
+    return key_info(cfg)
+
+
+def _ssh_env(key):
+    env = os.environ.copy()
+    env["GIT_SSH_COMMAND"] = (f"ssh -i {key} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new "
+                              "-o BatchMode=yes -o ConnectTimeout=15")
+    return env
+
+
+def _explain(err):
+    e = err.lower()
+    if "permission denied" in e:
+        return "GitHub refused the key. Add the public key below to the repo under Settings → Deploy keys."
+    if "read only" in e or "read-only" in e:
+        return "The deploy key is read-only. Edit it on GitHub and tick “Allow write access”."
+    if "repository not found" in e or "does not appear to be a git repository" in e:
+        return "Repository not found. Check the name, and that the key was added to this repo."
+    if "could not resolve" in e or "timed out" in e or "connection" in e:
+        return "Couldn't reach GitHub from this server. Check its internet connection."
+    if "rejected" in e or "fetch first" in e or "non-fast-forward" in e:
+        return "The repo already has different history. Use a new, empty repo for the log."
+    return err.strip()[-300:] or "unknown error"
+
+
+def test_remote(cfg, remote, log_dir, sh):
+    """Check read access (ls-remote) and write access (dry-run push) with the deploy key."""
+    key = key_path(cfg)
+    if not key.exists():
+        return {"ok": False, "read": False, "write": False, "detail": "No deploy key yet. Create one first."}
+    env = _ssh_env(key)
+    rc, out, err = sh(["git", "ls-remote", "--", remote], timeout=40, env=env)
+    if rc:
+        return {"ok": False, "read": False, "write": False, "detail": _explain(err)}
+    empty = not out.strip()
+    rc, _, err = sh(["git", "-C", str(log_dir), "push", "--dry-run", "--", remote, "HEAD:refs/heads/main"],
+                    timeout=60, env=env)
+    if rc:
+        return {"ok": False, "read": True, "write": False, "detail": _explain(err)}
+    return {"ok": True, "read": True, "write": True,
+            "detail": "Connected: Arrgus can read and write this repo." + (" It's empty, so the full log will be pushed." if empty else "")}
+
+
+# ---- log downloads --------------------------------------------------------------------------------
+_MONTH = re.compile(r"^\d{4}-\d{2}$")
+
+
+def logs_view(log_dir):
+    d = Path(log_dir)
+    months = sorted({p.stem for p in (d / "log").glob("*.md")} | {p.stem for p in (d / "events").glob("*.jsonl")},
+                    reverse=True)
+    size = lambda p: p.stat().st_size if p.exists() else 0
+    ai = list((d / "ai").glob("*.md"))
+    total = sum(p.stat().st_size for p in d.rglob("*") if p.is_file() and ".git" not in p.parts)
+    return {"dir": str(d), "total": total, "ai_sessions": len(ai), "has_box": (d / "box").is_dir(),
+            "months": [{"month": m, "md": size(d / "log" / f"{m}.md"), "jsonl": size(d / "events" / f"{m}.jsonl")}
+                       for m in months]}
+
+
+def logs_zip(log_dir, box, include_box=False):
+    """The log folder as a zip (without git internals; box/ backups only when asked)."""
+    import io
+    import zipfile
+    d = Path(log_dir)
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        for p in sorted(d.rglob("*")):
+            rel = p.relative_to(d)
+            if not p.is_file() or rel.parts[0] == ".git" or (rel.parts[0] == "box" and not include_box):
+                continue
+            z.write(p, f"arrgus-{box}-log/{rel}")
+    return buf.getvalue()
+
+
+def log_file(log_dir, month, fmt):
+    if not _MONTH.match(month or "") or fmt not in ("md", "jsonl"):
+        raise ValueError("bad month or format")
+    p = Path(log_dir) / ("log" if fmt == "md" else "events") / f"{month}.{fmt}"
+    if not p.exists():
+        raise FileNotFoundError(month)
+    return p.read_bytes()

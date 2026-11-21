@@ -82,6 +82,7 @@ class Logbook:
         self.dir = Path(gh.get("log_dir") or Path.home() / f"arrgus-{self.box}")
         self.remote = gh.get("remote", "")
         self.key = os.path.expanduser(gh.get("ssh_key", "")) if gh.get("ssh_key") else ""
+        self.push_enabled = gh.get("push_enabled", True)
         self.backup_files = [Path(os.path.expanduser(f)) for f in gh.get("backup_files", [])]
         if cfg.get("_path"):  # always back up the Settings page's overlay alongside the TOML
             from .settings import overlay_path
@@ -111,12 +112,7 @@ class Logbook:
             sh(["git", "init", "-b", "main", str(self.dir)])
         self._git("config", "user.name", f"arrgus@{self.box}")
         self._git("config", "user.email", f"arrgus@{self.box}.local")
-        if self.remote:
-            rc, out, _ = self._git("remote", "get-url", "origin")
-            if rc:
-                self._git("remote", "add", "origin", self.remote)
-            elif out != self.remote:
-                self._git("remote", "set-url", "origin", self.remote)
+        self._set_origin()
         readme = self.dir / "README.md"
         if not readme.exists():
             readme.write_text(
@@ -128,6 +124,23 @@ class Logbook:
                 "- [`ai/`](ai/): full transcripts of every AI troubleshooting session\n\n"
                 "Secrets, e-mail addresses and public IPs are scrubbed before commit.\n")
             self.dirty = True
+
+    def _set_origin(self):
+        if self.remote:
+            rc, out, _ = self._git("remote", "get-url", "origin")
+            if rc:
+                self._git("remote", "add", "origin", self.remote)
+            elif out != self.remote:
+                self._git("remote", "set-url", "origin", self.remote)
+
+    def reconfigure(self, gh):
+        """Apply new GitHub settings (from the Settings page) without a restart."""
+        with self.lock:
+            self.remote = gh.get("remote", "")
+            self.key = os.path.expanduser(gh.get("ssh_key", "")) if gh.get("ssh_key") else ""
+            self.push_enabled = gh.get("push_enabled", True)
+            self._set_origin()
+            self.last_push = {"ok": None, "at": None, "error": None}
 
     def _load_recent(self):
         f = self.dir / "events" / f"{month_key()}.jsonl"
@@ -202,7 +215,7 @@ class Logbook:
                     n = len(out.splitlines())
                     self._git("commit", "-q", "-m", f"arrgus: update log ({n} file{'s' if n != 1 else ''})")
                 self.dirty = False
-        if not self.remote:
+        if not self.remote or not self.push_enabled:
             return
         rc, _, err = self._git("push", "-q", "-u", "origin", "main")
         if rc and ("rejected" in err or "fetch first" in err or "non-fast-forward" in err):

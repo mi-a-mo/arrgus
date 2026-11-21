@@ -22,7 +22,7 @@ from core import settings as S
 from core.ai import strip_result
 from core.checks import docker_inventory, http_probe
 from core.metrics import Metrics
-from core.util import STATE_DIR, load_config, log, now_iso
+from core.util import STATE_DIR, load_config, log, now_iso, sh
 
 WEB_DIR = Path(__file__).resolve().parent
 SECRET_FILE = STATE_DIR / "proxy_secret"
@@ -163,6 +163,57 @@ class App:
                            "; ".join(diff) or "no changes to links, checks or ignored containers", push=True)
         self.eng.trigger_check("settings")
         return 200, {"ok": True, "changes": diff}
+
+    # ---- settings: GitHub + logs ---------------------------------------------
+    def github_view(self):
+        gh = self.cfg["github"]
+        return {"remote": gh.get("remote", ""), "push_enabled": gh.get("push_enabled", True),
+                "key": S.key_info(self.cfg), "last_push": self.eng.log.last_push,
+                "push_interval": gh.get("push_interval", 300), "log_dir": str(self.eng.log.dir)}
+
+    def do_github_key(self, body):
+        info = S.generate_key(self.cfg, sh)
+        if not self.cfg["github"].get("ssh_key"):
+            with self.save_lock:
+                S.save(self.cfg, {"github": {"ssh_key": S.DEFAULT_KEY}}, load_config)
+            self.eng.log.reconfigure(self.cfg["github"])
+        self.eng.log.event("info", "Created a GitHub deploy key from the Settings page", info["path"])
+        return 200, {"key": info}
+
+    def do_github_test(self, body):
+        remote = S.normalize_remote(body.get("remote"))
+        if not remote:
+            raise ValueError("enter a repository first")
+        return 200, dict(S.test_remote(self.cfg, remote, self.eng.log.dir, sh), remote=remote)
+
+    def do_github_save(self, body):
+        remote = S.normalize_remote(body.get("remote"))
+        enabled = bool(body.get("push_enabled", True)) and bool(remote)
+        if remote and enabled and remote != self.cfg["github"].get("remote"):
+            t = S.test_remote(self.cfg, remote, self.eng.log.dir, sh)
+            if not t["ok"]:
+                return 400, {"error": t["detail"], "test": t}
+        changes = {"remote": remote, "push_enabled": enabled}
+        if not self.cfg["github"].get("ssh_key") and S.key_path(self.cfg).exists():
+            changes["ssh_key"] = S.DEFAULT_KEY
+        with self.save_lock:
+            before = dict(self.cfg["github"])
+            S.save(self.cfg, {"github": changes}, load_config)
+            self.eng.log.reconfigure(self.cfg["github"])
+        what = (f"log repo {remote}" if remote else "log repo disconnected") + \
+               ("" if enabled or not remote else " (pushing off)")
+        if before.get("remote") != remote or before.get("push_enabled", True) != enabled:
+            self.eng.log.event("info", "GitHub settings saved from the dashboard", what, push=True)
+        return 200, {"ok": True, "github": self.github_view()}
+
+    def do_github_push(self, body):
+        lg = self.eng.log
+        if not lg.remote or not lg.push_enabled:
+            return 409, {"error": "pushing is off or no repository is connected"}
+        t = threading.Thread(target=lg.publish, daemon=True)
+        t.start()
+        t.join(90)
+        return 200, {"last_push": lg.last_push}
 
     def do_settings_probe(self, body):
         url = S._url(body.get("url"), "URL")
@@ -324,7 +375,7 @@ def make_handler(app):
             log.debug("web %s - %s", self.address_string(), fmt % args)
 
         # ---- plumbing -------------------------------------------------------
-        def _send(self, code, body, ctype="application/json", cookie=None):
+        def _send(self, code, body, ctype="application/json", cookie=None, headers=None):
             if not isinstance(body, (bytes, str)):
                 body = json.dumps(body, default=str)
             if isinstance(body, str):
@@ -336,6 +387,8 @@ def make_handler(app):
             self.send_header("X-Content-Type-Options", "nosniff")
             self.send_header("X-Frame-Options", "DENY")
             self.send_header("Referrer-Policy", "no-referrer")
+            for k, v in (headers or {}).items():
+                self.send_header(k, v)
             if cookie is not None:  # settings session; "" clears it
                 self.send_header("Set-Cookie", f"arrgus_settings={cookie}; Path=/; HttpOnly; Secure; SameSite=Strict"
                                  + ("; Max-Age=0" if not cookie else f"; Max-Age={S.SESSION_TTL}"))
@@ -383,13 +436,10 @@ def make_handler(app):
                 return self._send(200, (WEB_DIR / "theme.css").read_text(), "text/css")
             if path == "/api/settings/auth":
                 return self._send(200, app.settings_auth(self._token()))
-            if path == "/api/settings":
+            if path.startswith("/api/settings") and path != "/api/settings/auth":
                 if not app.sessions.valid(self._token()):
                     return self._send(401, {"error": "sign in to Settings first"})
-                try:
-                    return self._send(200, app.settings_view())
-                except RuntimeError as e:
-                    return self._send(500, {"error": str(e)})
+                return self._settings_get(path, parse_qs(urlparse(self.path).query))
             if path == "/api/status":
                 return self._send(200, app.status())
             if path == "/api/ai/jobs":
@@ -450,6 +500,32 @@ def make_handler(app):
                 code, out = 500, {"error": str(e)}
             self._send(code, out)
 
+        def _settings_get(self, path, q):
+            one = lambda k: (q.get(k) or [""])[0]
+            try:
+                if path == "/api/settings":
+                    return self._send(200, app.settings_view())
+                if path == "/api/settings/github":
+                    return self._send(200, app.github_view())
+                if path == "/api/settings/logs":
+                    return self._send(200, S.logs_view(app.eng.log.dir))
+                if path == "/api/settings/logs/download":
+                    box = app.cfg["box"]["name"]
+                    if one("month"):
+                        m, fmt = one("month"), one("fmt") or "md"
+                        data = S.log_file(app.eng.log.dir, m, fmt)
+                        return self._send(200, data, "text/markdown" if fmt == "md" else "application/x-ndjson",
+                                          headers={"Content-Disposition": f'attachment; filename="arrgus-{box}-{m}.{fmt}"'})
+                    data = S.logs_zip(app.eng.log.dir, box, include_box=one("box") == "1")
+                    stamp = time.strftime("%Y%m%d-%H%M")
+                    return self._send(200, data, "application/zip",
+                                      headers={"Content-Disposition": f'attachment; filename="arrgus-{box}-log-{stamp}.zip"'})
+            except FileNotFoundError:
+                return self._send(404, {"error": "no log for that month"})
+            except (ValueError, RuntimeError) as e:
+                return self._send(400 if isinstance(e, ValueError) else 500, {"error": str(e)})
+            return self._send(404, {"error": "not found"})
+
         def _settings_post(self, path, body):
             tok = self._token()
             try:
@@ -464,7 +540,11 @@ def make_handler(app):
                     if not app.sessions.valid(tok):
                         return self._send(401, {"error": "sign in to Settings first"})
                     fn = {"/api/settings/services": app.do_settings_services,
-                          "/api/settings/probe": app.do_settings_probe}.get(path)
+                          "/api/settings/probe": app.do_settings_probe,
+                          "/api/settings/github": app.do_github_save,
+                          "/api/settings/github/key": app.do_github_key,
+                          "/api/settings/github/test": app.do_github_test,
+                          "/api/settings/github/push": app.do_github_push}.get(path)
                     if not fn:
                         return self._send(404, {"error": "not found"})
                     r = fn(body)
