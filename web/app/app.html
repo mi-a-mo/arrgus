@@ -53,7 +53,7 @@
   .ab-tabs { flex: none; display: grid; grid-template-columns: repeat(5, 1fr); background: #02060af0; backdrop-filter: blur(10px);
              -webkit-backdrop-filter: blur(10px); border-top: 1px solid var(--line); z-index: 5;
              /* never closer than 26px to the bottom edge: clear of the rounded corners and home indicator */
-             padding: 4px max(10px, env(safe-area-inset-left)) calc(max(env(safe-area-inset-bottom), 12px) + 2px) max(10px, env(safe-area-inset-right)); }
+             padding: 4px max(10px, env(safe-area-inset-left)) calc(max(env(safe-area-inset-bottom), 16px) + 12px) max(10px, env(safe-area-inset-right)); }
   .ab-tabs button { all: unset; position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 0 4px;
                     color: var(--muted); font-size: 11px; letter-spacing: .02em; cursor: pointer; }
   .ab-tabs button svg { width: 24px; height: 24px; }
@@ -163,10 +163,18 @@
 <script>
 // iOS gives a home-screen app with a solid status bar the space *below* the status bar (window.innerHeight),
 // but CSS 100% heights still use the full screen, pushing the tab bar off the bottom. Use the real height.
-function fitScreen() { document.documentElement.style.setProperty("--app-h", window.innerHeight + "px"); }
+// iOS reports the full screen height for a moment while the app starts, so measure again as it settles.
+function fitScreen() {
+  const h = Math.min(window.innerHeight, document.documentElement.clientHeight || 1e9, window.visualViewport ? window.visualViewport.height : 1e9);
+  document.documentElement.style.setProperty("--app-h", Math.round(h) + "px");
+}
 fitScreen();
+for (const ms of [50, 250, 600, 1200, 2500]) setTimeout(fitScreen, ms);
+window.addEventListener("load", fitScreen);
+window.addEventListener("pageshow", fitScreen);
 window.addEventListener("resize", fitScreen);
 window.addEventListener("orientationchange", () => setTimeout(fitScreen, 300));
+if (window.visualViewport) window.visualViewport.addEventListener("resize", fitScreen);
 const BOOT = {{BOOT_JSON}};
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -744,13 +752,13 @@ function reportLayout(reason) {
     probe.remove();
     const r = (sel) => { const e = document.querySelector(sel); if (!e) return null; const b = e.getBoundingClientRect(); return {top: Math.round(b.top), bottom: Math.round(b.bottom), h: Math.round(b.height)}; };
     const vv = window.visualViewport;
-    api("/api/app/layout", {reason, ua: navigator.userAgent, standalone: standalone(), status_bar: document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]')?.content,
+    api("/api/app/layout", {reason, ui: BOOT.ui, app_h: getComputedStyle(document.documentElement).getPropertyValue("--app-h"), ua: navigator.userAgent, standalone: standalone(), status_bar: document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]')?.content,
       dpr: window.devicePixelRatio, screen: [screen.width, screen.height], inner: [innerWidth, innerHeight], outer_h: outerHeight,
       client_h: document.documentElement.clientHeight, vv: vv ? {h: Math.round(vv.height), top: Math.round(vv.offsetTop)} : null, inset,
       body: r("body"), top_bar: r(".ab-top"), tab_bar: r(".ab-tabs"), tab_icon: r(".ab-tabs button svg")}).catch(() => {});
   } catch {}
 }
-setTimeout(() => reportLayout("load"), 1500);
+setTimeout(() => reportLayout("load"), 3500);
 let layoutT = null;
 window.addEventListener("resize", () => { clearTimeout(layoutT); layoutT = setTimeout(() => reportLayout("resize"), 800); });
 
