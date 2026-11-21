@@ -2,7 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#02060a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Settings · {{TITLE}}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -66,8 +69,39 @@
   .muted { color: var(--muted); }
   code { font: 12.5px var(--mono); color: #e3c88f; }
   @media (max-width: 640px) {
+    .topbar { margin-bottom: 14px; }
+    .topbar .emblem { width: 36px; height: 36px; }
+    .topbar h1.wordmark { font-size: 20px; letter-spacing: .2em; }
+    .topbar .page { font-size: 12px; }
+    .topbar .buttons { width: 100%; display: grid; grid-template-columns: 1fr 1fr; }
+    .topbar .buttons .btn { justify-content: center; min-height: 44px; }
+    .topbar .buttons .btn:only-child { grid-column: 1 / -1; }
+    /* tabs: one swipeable row */
+    .tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -16px 12px; padding: 2px 16px 4px; }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tabs .btn { flex: none; min-height: 42px; }
+    .auth { margin: 16px auto; }
+    .svc-h .who { flex-basis: calc(100% - 44px); }
+    .toggles { width: 100%; display: grid; grid-template-columns: repeat(3, 1fr); }
+    .tg { justify-content: center; min-height: 44px; padding: 6px; text-align: center; }
     .detail { margin-left: 0; }
-    .detail .line3, .xl { grid-template-columns: 1fr; }
+    .detail .line, .detail .line3, .xl { grid-template-columns: 1fr; }
+    .detail .btn.small, .xl .btn { min-height: 42px; }
+    .agents { grid-template-columns: 1fr; }
+    .choice { display: grid; }
+    .choice .tg, label.tg { justify-content: flex-start; }
+    .keyrow { grid-template-columns: 1fr; }
+    #logs .row { flex-wrap: wrap; }
+    #logs .row .grow { flex-basis: 100%; }
+    #logs .row > .btn, #logs .row > .buttons { width: 100%; }
+    #logs .row > .buttons { display: grid; grid-template-columns: 1fr 1fr; }
+    #logs .row .btn { justify-content: center; min-height: 42px; }
+    /* save bar pinned to the bottom of the screen */
+    .savebar { position: fixed; left: 0; right: 0; bottom: 0; margin: 0; border-width: 1px 0 0;
+               padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); flex-wrap: wrap; }
+    .savebar .buttons { margin-left: auto; }
+    .savebar .btn { min-height: 44px; }
+    #tab-services { padding-bottom: 76px; }
   }
 </style>
 </head>

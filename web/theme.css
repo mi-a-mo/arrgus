@@ -252,3 +252,73 @@
   .dline .v { font-weight: 600; min-width: 2.6em; text-align: right; }
   .dline .bar { grid-column: 1 / -1; margin-top: 4px; }
   a.btn { text-decoration: none; }
+
+  /* ---- phones and small tablets ------------------------------------------------------------------ */
+  button, a, label { -webkit-tap-highlight-color: transparent; }
+  .btn:active:not(:disabled), a.tile:active { filter: brightness(1.15); }
+  @media (hover: none) {
+    a.tile:hover { transform: none; box-shadow: 0 10px 30px #0006; border-color: var(--line); }
+    a.tile:hover::after { opacity: 0; }
+  }
+  @media (max-width: 640px) {
+    body { padding: max(14px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+                    calc(40px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
+    .brand { margin-bottom: 14px; gap: 4px; }
+    .emblem { width: 48px; height: 48px; }
+    h1.wordmark { font-size: 27px; letter-spacing: .22em; padding-left: .22em; }
+    p.sub { font-size: 13px; }
+
+    /* app links: compact tiles, four or so across */
+    .grid { grid-template-columns: repeat(auto-fill, minmax(74px, 1fr)); gap: 8px; margin-bottom: 18px; }
+    a.tile { padding: 10px 4px 9px; gap: 6px; font-size: 12px; line-height: 1.2; text-align: center; overflow-wrap: anywhere; }
+    a.tile img { width: 30px; height: 30px; }
+
+    .card { padding: 14px; margin-bottom: 12px; }
+    .card::after, .modal::after { inset: 3px; }
+    .cols, .stack { gap: 12px; }
+    h2 { font-size: 13px; margin-bottom: 10px; }
+
+    /* status + actions: big, thumb-sized buttons in a grid */
+    .hero { flex-direction: column; align-items: stretch; gap: 14px; }
+    .hero .buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .hero .buttons .btn { justify-content: center; min-height: 46px; padding: 8px 6px; white-space: normal; text-align: center; }
+    .hero .buttons .btn.primary { grid-column: 1 / -1; order: -1; }
+    .state .big { font-size: 20px; }
+    .btn.small { min-height: 38px; padding: 7px 12px; }
+
+    /* system tiles: two across, storage full width */
+    .sys { grid-template-columns: 1fr 1fr; }
+    .sys .tile2:has(.dline), .sys .tile2:only-child { grid-column: 1 / -1; }
+    .sys .tile2 .val { font-size: 18px; }
+    .sys .tile2 .sub { font-size: 12.5px; }
+
+    /* lists */
+    .row { gap: 9px; }
+    .events { max-height: 380px; }
+    .events .row { flex-wrap: wrap; }
+    .events .row .grow { flex: 1 1 calc(100% - 20px); }
+    .events .row .ts { flex-basis: 100%; padding-left: 17px; margin-top: -4px; font-size: 12px; }
+    pre.ev { font-size: 12px; }
+
+    /* AI and other dialogs: full screen */
+    .modal-bg { padding: 0; align-items: stretch; }
+    .modal { max-width: none; min-height: 100dvh; border: 0; box-shadow: none;
+             padding: max(16px, env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom)); }
+    .modal::before { display: none; }
+    .modal h3 { font-size: 18px; padding-right: 8px; }
+    .transcript { max-height: calc(100dvh - 300px); min-height: 160px; }
+    .t-user { max-width: 92%; }
+    .followup { flex-direction: column; align-items: stretch; }
+    .modal-foot { flex-wrap: wrap; }
+    .modal-foot .btn { flex: 1 1 auto; justify-content: center; min-height: 44px; }
+
+    /* 16px text in fields stops iPhones zooming in when you tap them */
+    textarea, input, select { font-size: 16px !important; }
+
+    .toast { bottom: calc(14px + env(safe-area-inset-bottom)); max-width: calc(100vw - 32px); width: max-content; text-align: center; }
+    .foot { margin-top: 18px; }
+  }
+  @media (max-width: 360px) {
+    .sys { grid-template-columns: 1fr; }
+    .grid { grid-template-columns: repeat(auto-fill, minmax(66px, 1fr)); }
+  }
