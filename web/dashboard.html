@@ -173,7 +173,7 @@ async function api(path, body) {
 // ---------- static header ----------
 document.title = BOOT.title;
 $("subtitle").textContent = BOOT.subtitle;
-$("links").innerHTML = BOOT.links.map((l) => `<a class="tile" href="${esc(l.url)}" rel="noreferrer">
+$("links").innerHTML = BOOT.links.map((l) => `<a class="tile" href="${esc(l.url)}" target="_blank" rel="noopener noreferrer">
   ${l.icon ? `<img src="${esc(l.icon)}" alt="" onerror="this.style.display='none'">` : ""}${esc(l.name)}</a>`).join("");
 
 // ---------- render ----------
