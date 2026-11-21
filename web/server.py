@@ -224,6 +224,63 @@ class App:
         t.join(90)
         return 200, {"last_push": lg.last_push}
 
+    # ---- phone notifications -------------------------------------------------
+    def push_info(self):
+        from core.push import CATEGORIES
+        p = self.eng.push
+        return {"available": p.available, "reason": p.unavailable_reason(), "public_key": p.public_key(),
+                "categories": {k: {"label": v["label"], "default": v["default"]} for k, v in CATEGORIES.items()}}
+
+    @staticmethod
+    def _sub_view(s):
+        return {"id": s["id"], "name": s["name"], "created": s["created"], "prefs": s["prefs"], "last": s.get("last")}
+
+    def do_push(self, action, body):
+        p = self.eng.push
+        if not p.available:
+            return 503, {"error": p.unavailable_reason()}
+        ep = ((body.get("subscription") or {}).get("endpoint") if action == "subscribe" else body.get("endpoint")) or ""
+        if action == "subscribe":
+            old = p.find(str(body.get("old") or "")) if body.get("old") else None   # renewed by the phone
+            new = p.find(ep) is None and not old
+            s = p.subscribe(body.get("subscription"), old["name"] if old else str(body.get("name") or "Phone"),
+                            old["prefs"] if old else body.get("prefs"))
+            if old and old["endpoint"] != ep:
+                p.remove(endpoint=old["endpoint"])
+            if new:
+                self.eng.log.event("info", f"Phone notifications turned on: {s['name']}")
+            return 200, {"subscribed": True, **self._sub_view(s)}
+        s = p.find(ep)
+        if action == "status":
+            return 200, {"subscribed": bool(s), **(self._sub_view(s) if s else {})}
+        if not s:
+            return 404, {"error": "this phone isn't subscribed"}
+        if action == "prefs":
+            return 200, {"subscribed": True, **self._sub_view(p.set_prefs(ep, body.get("prefs") or {}))}
+        if action == "unsubscribe":
+            p.remove(endpoint=ep)
+            self.eng.log.event("info", f"Phone notifications turned off: {s['name']}")
+            return 200, {"subscribed": False}
+        if action == "test":
+            ok, detail = p.deliver(s, {"title": f"Arrgus · {self.cfg['box']['name']}",
+                                       "body": "Test notification. Notifications are working.", "url": "/app",
+                                       "tag": "arrgus-test"}, urgent=True)
+            return 200, {"ok": ok, "detail": detail}
+        return 404, {"error": "not found"}
+
+    def do_settings_push(self, action, body):
+        p = self.eng.push
+        s = next((x for x in p.subs() if x["id"] == body.get("id")), None)
+        if not s:
+            return 404, {"error": "no such phone"}
+        if action == "remove":
+            p.remove(sid=s["id"])
+            self.eng.log.event("info", f"Phone removed from notifications in Settings: {s['name']}")
+            return 200, {"ok": True}
+        ok, detail = p.deliver(s, {"title": f"Arrgus · {self.cfg['box']['name']}", "body": "Test notification from Settings.",
+                                   "url": "/app", "tag": "arrgus-test"}, urgent=True)
+        return 200, {"ok": ok, "detail": detail}
+
     # ---- settings: AI agent ---------------------------------------------------
     def do_ai_save(self, body):
         changes = S.build_ai_overlay(body, self.cfg)
@@ -494,6 +551,8 @@ def make_handler(app):
                 if not app.sessions.valid(self._token()):
                     return self._send(401, {"error": "sign in to Settings first"})
                 return self._settings_get(path, parse_qs(urlparse(self.path).query))
+            if path == "/api/push":
+                return self._send(200, app.push_info())
             if path == "/api/status":
                 return self._send(200, app.status())
             if path == "/api/ai/jobs":
@@ -541,6 +600,11 @@ def make_handler(app):
                 "/api/ai/followup": lambda b: app.do_ai("followup", b),
                 "/api/reboot": app.do_reboot,
                 "/api/reboot/cancel": app.do_reboot_cancel,
+                "/api/push/subscribe": lambda b: app.do_push("subscribe", b),
+                "/api/push/status": lambda b: app.do_push("status", b),
+                "/api/push/prefs": lambda b: app.do_push("prefs", b),
+                "/api/push/unsubscribe": lambda b: app.do_push("unsubscribe", b),
+                "/api/push/test": lambda b: app.do_push("test", b),
             }
             if path.startswith("/api/settings/"):
                 return self._settings_post(path, body)
@@ -549,6 +613,8 @@ def make_handler(app):
                 return self._send(404, {"error": "not found"})
             try:
                 code, out = fn(body)
+            except (ValueError, KeyError) as e:
+                code, out = 400, {"error": str(e).strip("'")}
             except Exception as e:
                 log.exception("POST %s failed", path)
                 code, out = 500, {"error": str(e)}
@@ -563,6 +629,8 @@ def make_handler(app):
                     return self._send(200, app.github_view())
                 if path == "/api/settings/ai":
                     return self._send(200, S.ai_view(app.cfg, app.eng.ai))
+                if path == "/api/settings/push":
+                    return self._send(200, dict(app.push_info(), phones=[app._sub_view(s) for s in app.eng.push.subs()]))
                 if path == "/api/settings/logs":
                     return self._send(200, S.logs_view(app.eng.log.dir))
                 if path == "/api/settings/logs/download":
@@ -602,7 +670,9 @@ def make_handler(app):
                           "/api/settings/github/test": app.do_github_test,
                           "/api/settings/github/push": app.do_github_push,
                           "/api/settings/ai": app.do_ai_save,
-                          "/api/settings/ai/test": app.do_ai_test}.get(path)
+                          "/api/settings/ai/test": app.do_ai_test,
+                          "/api/settings/push/test": lambda b: app.do_settings_push("test", b),
+                          "/api/settings/push/remove": lambda b: app.do_settings_push("remove", b)}.get(path)
                     if not fn:
                         return self._send(404, {"error": "not found"})
                     r = fn(body)

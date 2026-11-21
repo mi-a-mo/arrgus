@@ -19,6 +19,7 @@ The code is generic. Everything about a particular box lives in `config/<box>.to
 | `core/updates.py` | Registry digest checks, apt check, approved apply with health check and rollback |
 | `core/settings.py` | Settings page: overlay file, live re-apply, password + sessions, Services view and validation |
 | `core/catalog.py` | Known apps (Plex, Jellyfin, the *arrs, download clients…) used to suggest health checks, links and icons |
+| `core/push.py` | Phone notifications (Web Push: VAPID signing, RFC 8291 encryption, per-phone choices) |
 | `core/logbook.py` | JSONL + Markdown log in a git repo, scrubbed of secrets, emails and public IPs, pushed periodically |
 | `web/` | Stdlib HTTP server + single-page dashboard, Settings page, shared `theme.css` |
 | `web/app/` | The installable phone app: page, manifest, service worker, icons |
@@ -90,6 +91,15 @@ updates with Approve, actions incl. Reboot), **Apps** (your links), **AI** (Ask 
 live replies and follow-ups), **System** (CPU, memory, temperature, drives, checks) and **Activity** (the log).
 Pull down to refresh. When the server can't be reached (e.g. Tailscale is off) it shows the last known status.
 Settings opens the normal Settings page, with a link back to the app. Icons are drawn by `tools/make_icons.py`.
+
+**Notifications.** On the app's Home tab, tap **Turn on notifications** (on iPhone/iPad this works once the app is
+on the home screen, iOS 16.4+). Each phone picks what it's told about: problems Arrgus couldn't fix and the AI
+needing you (on by default), plus fixes, finished AI sessions, available updates and reboots. Arrgus sends them
+itself using the Web Push standard: each message is encrypted for that phone, so Apple/Google/Mozilla only pass it
+along. Tapping one opens the app (an AI notification opens that conversation). **Settings → Notifications** lists
+the phones, with Send test and Remove. Needs `python3-cryptography`; the signing key and phone list live in
+`state/push.json`. Optional: set `[notify] push_contact = "mailto:you@example.com"` (sent to the push services as
+the sender's contact, as the standard asks).
 
 ## Settings page
 `/settings` on the dashboard, protected by its own password (set on first visit; reset on the server with

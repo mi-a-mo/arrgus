@@ -290,6 +290,7 @@ function renderHome() {
     <button class="btn" data-act="versions" ${s.updates.checking ? "disabled" : ""}>${s.updates.checking ? `<span class="spin"></span> Checking` : "Version check"}</button>
     <button class="btn${rb.required ? " danger" : ""}" data-act="reboot">${rb.required ? `<span class="badge"></span> ` : ""}Reboot</button>
     <a class="btn wide" href="/settings?from=app">Settings</a></div></div>`;
+  h += notifHtml();
   $("v-home").innerHTML = h;
   $("b-install")?.addEventListener("click", async () => { deferredInstall.prompt(); deferredInstall = null; render(); });
   $("b-install-hide")?.addEventListener("click", () => { safeSet("arrgus.app.installHidden", "1"); render(); });
@@ -620,6 +621,107 @@ async function rebootPoll() {
   rbTimer = setTimeout(rebootPoll, st && rb && rb.scheduled && !rb.rebooting ? 1000 : 4000);
 }
 
+// ---------- notifications ----------
+// N: what this phone knows about notifications. Loaded once, then after each change.
+let N = {loading: true};
+const iOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+function deviceName() {
+  const ua = navigator.userAgent;
+  const dev = /iPhone/.test(ua) ? "iPhone" : /iPad/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) ? "iPad"
+    : /Android/.test(ua) ? "Android" : /Mac/.test(ua) ? "Mac" : /Windows/.test(ua) ? "Windows PC" : /Linux/.test(ua) ? "Linux" : "Device";
+  const br = /EdgA?\//.test(ua) ? "Edge" : /SamsungBrowser/.test(ua) ? "Samsung Internet" : /Firefox|FxiOS/.test(ua) ? "Firefox"
+    : /Chrome|CriOS/.test(ua) ? "Chrome" : /Safari/.test(ua) ? "Safari" : "";
+  return dev + (br && !(standalone() && br === "Safari") ? " · " + br : "");
+}
+function keyBytes(b64) {
+  const raw = atob(b64.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - b64.length % 4) % 4));
+  return Uint8Array.from(raw, (ch) => ch.charCodeAt(0));
+}
+async function loadNotif() {
+  const n = {};
+  n.supported = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+  n.perm = "Notification" in window ? Notification.permission : "unsupported";
+  try { n.info = await api("/api/push"); } catch (e) { n.error = e.message; }
+  if (n.supported) {
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      n.sub = await reg.pushManager.getSubscription();
+      if (n.sub && n.info && n.info.available) {
+        const st = await api("/api/push/status", {endpoint: n.sub.endpoint});
+        n.server = st.subscribed ? st : null;
+      }
+    } catch (e) { n.error = n.error || e.message; }
+  }
+  N = n;
+  if (tab === "home") render();
+}
+function notifHtml() {
+  const n = N;
+  let inner;
+  if (n.loading) inner = `<div class="empty">Checking…</div>`;
+  else if (iOS && !standalone()) inner = `<p class="detail" style="margin:0">On iPhone and iPad, notifications work once Arrgus is on your home screen.
+      Install it (Share → Add to Home Screen), open it from there, and turn them on here.</p>`;
+  else if (!n.supported) inner = `<p class="detail" style="margin:0">This browser can't receive notifications.</p>`;
+  else if (n.info && !n.info.available) inner = `<p class="detail" style="margin:0">Notifications aren't available on the server yet. ${esc(n.info.reason)}</p>`;
+  else if (!n.info) inner = `<p class="detail" style="margin:0">${esc(n.error || "Can't reach Arrgus.")}</p>`;
+  else if (n.perm === "denied") inner = `<p class="detail" style="margin:0">Notifications for Arrgus are blocked. Allow them in your phone's settings
+      (${iOS ? "Settings → Notifications → Arrgus" : "Settings → Apps → your browser or Arrgus → Notifications"}), then come back.</p>`;
+  else if (!n.sub || !n.server) inner = `<p class="detail" style="margin:0 0 10px">Get a notification on this ${esc(deviceName().split(" · ")[0])} when something needs you.</p>
+      <button class="btn primary" style="width:100%;justify-content:center;min-height:48px" data-notif="on">Turn on notifications</button>`;
+  else {
+    const cats = n.info.categories;
+    inner = `<p class="detail" style="margin:0 0 8px">On for this device (“${esc(n.server.name)}”). Notify me about:</p>
+      <div style="display:grid;gap:6px">${Object.keys(cats).map((k) => `<label class="tg" style="justify-content:flex-start;min-height:44px">
+        <input type="checkbox" data-notifcat="${k}" ${n.server.prefs[k] ? "checked" : ""}> ${esc(cats[k].label)}</label>`).join("")}</div>
+      <div class="actions" style="margin-top:10px"><button class="btn" data-notif="test">Send test</button><button class="btn" data-notif="off">Turn off</button></div>
+      ${n.server.last && !n.server.last.ok ? `<p class="note" style="color:var(--warn)">Last delivery failed: ${esc(n.server.last.detail)}</p>` : ""}`;
+  }
+  return `<div class="card"><h2>Notifications</h2>${inner}</div>`;
+}
+document.addEventListener("click", async (ev) => {
+  const b = ev.target.closest("[data-notif]");
+  if (!b || b.disabled) return;
+  const what = b.dataset.notif;
+  b.disabled = true;
+  try {
+    if (what === "on") {
+      const perm = await Notification.requestPermission();
+      if (perm !== "granted") { toast(perm === "denied" ? "Notifications were blocked" : "Notifications not allowed"); }
+      else {
+        const reg = await navigator.serviceWorker.ready;
+        let sub = await reg.pushManager.getSubscription();
+        if (!sub) sub = await reg.pushManager.subscribe({userVisibleOnly: true, applicationServerKey: keyBytes(N.info.public_key)});
+        await api("/api/push/subscribe", {subscription: sub.toJSON(), name: deviceName()});
+        toast("Notifications on");
+      }
+    } else if (what === "test") {
+      const r = await api("/api/push/test", {endpoint: N.sub.endpoint}, 30000);
+      toast(r.ok ? "Test sent. It should arrive in a few seconds." : "Couldn't send: " + r.detail);
+    } else if (what === "off") {
+      try { await api("/api/push/unsubscribe", {endpoint: N.sub.endpoint}); } catch {}
+      try { await N.sub.unsubscribe(); } catch {}
+      toast("Notifications off");
+    }
+  } catch (e) { toast(e.message); }
+  b.disabled = false;
+  loadNotif();
+});
+document.addEventListener("change", async (ev) => {
+  const c = ev.target.closest("[data-notifcat]");
+  if (!c) return;
+  try { const r = await api("/api/push/prefs", {endpoint: N.sub.endpoint, prefs: {[c.dataset.notifcat]: c.checked}}); N.server = r; }
+  catch (e) { toast(e.message); c.checked = !c.checked; }
+});
+
+// opened from a notification: /app?job=<id> opens that AI conversation
+function openFromUrl(u) {
+  let url; try { url = new URL(u, location.origin); } catch { return; }
+  const job = url.searchParams.get("job");
+  if (job) { showTab("ai"); openThread(job); } else { if (sheetOpen()) closeSheet(); showTab("home"); }
+  refresh();
+}
+if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", (e) => { if (e.data && e.data.open) openFromUrl(e.data.open); });
+
 // ---------- install + offline support ----------
 let deferredInstall = null;
 const standalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
@@ -628,6 +730,11 @@ if ("serviceWorker" in navigator) navigator.serviceWorker.register("/app/sw.js",
 
 showTab(["home", "apps", "ai", "system", "activity"].includes(tab) ? tab : "home");
 refresh();
+loadNotif();
+if (new URLSearchParams(location.search).get("job")) {
+  openFromUrl(location.href);
+  history.replaceState(history.state, "", "/app");
+}
 </script>
 </body>
 </html>

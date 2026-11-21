@@ -8,6 +8,7 @@ from .ai import AIRunner
 from .checks import Checker
 from .fixes import Fixer, describe
 from .logbook import Logbook
+from .push import Push
 from .updates import Updater
 from .util import STATE_DIR, JsonStore, duration, human_ts, log, now_iso, sh, uptime_seconds
 
@@ -17,6 +18,8 @@ class Engine:
         self.cfg = cfg
         self.sched = cfg["schedule"]
         self.log = Logbook(cfg)
+        self.push = Push(cfg)
+        self.log.alert_hook = self._alert
         self.checker = Checker(cfg)
         self.fixer = Fixer(cfg, self.checker)
         self.state = JsonStore(STATE_DIR / "state.json",
@@ -36,6 +39,12 @@ class Engine:
     def trigger_check(self, reason="manual"):
         self.trigger_reason = reason
         self.trigger.set()
+
+    def _alert(self, categories, ev):
+        detail = "\n".join((ev.get("detail") or "").splitlines()[:3])
+        job = (ev.get("data") or {}).get("job")
+        self.push.send(categories, ev["title"], detail, url=f"/app?job={job}" if job else "/app",
+                       tag=f"arrgus-{ev['kind']}-{(ev.get('data') or {}).get('check') or job or ev['ts']}")
 
     def notify(self, title, body):
         url = self.cfg["notify"].get("ntfy_url")
@@ -79,8 +88,11 @@ class Engine:
             if iid not in inc:
                 inc[iid] = {"id": iid, "name": r["name"], "detail": r["detail"], "opened": now_iso(),
                             "attempts": 0, "ai_runs": 0, "last_ai": 0, "last_fixer": None, "fix": r["fix"]}
+                leak = (r.get("fix") or {}).get("kind") == "vpn_leak"
                 self.log.event("issue", f"{r['name']}: {r['detail']}", level="error",
-                               data={"check": iid, "reason": reason})
+                               data={"check": iid, "reason": reason}, alert="problems" if leak else None)
+                if leak:
+                    inc[iid]["alerted"] = True
             else:
                 inc[iid]["detail"] = r["detail"]
 
@@ -116,13 +128,25 @@ class Engine:
                 results, inv, _ = self.checker.run()
                 fails = self._fails(results)
 
+        # notify once per issue when the scripted fixes have run out (or there are none)
+        max_attempts = self.cfg["checks"].get("max_fix_attempts", 2)
+        for iid, r in fails.items():
+            i = inc[iid]
+            exhausted = not r.get("fix") or r["fix"]["kind"] == "ai" or i["attempts"] >= max_attempts
+            if exhausted and not i.get("alerted") and allow_fix:
+                i["alerted"] = True
+                ai_on = self.ai.enabled and self.cfg["ai"].get("auto_escalate", True)
+                self.push.send("problems", f"{r['name']}: {r['detail']}",
+                               "Scripted fixes didn't solve it" + ("; the AI is taking a look." if ai_on else "."),
+                               url="/app", tag=f"arrgus-issue-{iid}")
+
         for iid in [i for i in inc if i not in fails]:
             i = inc.pop(iid)
             from datetime import datetime
             open_for = (datetime.now().astimezone() - datetime.fromisoformat(i["opened"])).total_seconds()
             self.log.event("resolved", f"{i['name']}",
                            f"Open {duration(open_for)}. Resolved by: {i.get('last_fixer') or 'recovered on its own'}",
-                           level="ok", push=True)
+                           level="ok", push=True, alert="fixed", data={"check": iid})
 
         if allow_fix and not self.ai.busy() and self.ai.enabled and self.cfg["ai"].get("auto_escalate", True):
             self._maybe_escalate(fails, results)
@@ -246,7 +270,7 @@ class Engine:
         if rc:
             self._reboot = None
             self.REBOOT_MARKER.unlink(missing_ok=True)
-            self.log.event("boot", "Reboot FAILED", (err or out)[-800:], level="error", push=True)
+            self.log.event("boot", "Reboot FAILED", (err or out)[-800:], level="error", push=True, alert="problems")
 
     def _boot_report(self):
         """After a dashboard-requested reboot: log downtime and kernel change, once."""
@@ -267,7 +291,8 @@ class Engine:
         down = booted - req.timestamp()
         kern = f"kernel {d.get('kernel')} → {kernel}" if d.get("kernel") and d["kernel"] != kernel else f"kernel {kernel} (unchanged)"
         self.log.event("boot", f"Reboot completed: Arrgus back {duration(down + uptime_seconds())} after the request; {kern}",
-                       f"Requested {human_ts(d['requested'])} by {d.get('by', 'owner')}.", level="ok", push=True)
+                       f"Requested {human_ts(d['requested'])} by {d.get('by', 'owner')}.", level="ok", push=True,
+                       alert="reboots")
 
     # ---- loops -----------------------------------------------------------
     def boot_sequence(self, force_boot=False, allow_fix=True):
@@ -293,7 +318,8 @@ class Engine:
             self.log.event("boot", f"Post-boot check{'' if allow_fix else ' (dry run, no fixes)'}: "
                                    f"{ok}/{len(results)} checks OK, "
                                    f"{len(self.state.data['incidents'])} open issue(s)",
-                           detail, level="ok" if not self.state.data["incidents"] else "error", push=True)
+                           detail, level="ok" if not self.state.data["incidents"] else "error", push=True,
+                           alert=["reboots"] + (["problems"] if self.state.data["incidents"] else []))
         else:
             self.log.event("info", "Arrgus started", f"Host up {duration(up)}")
             self.check_cycle("startup")

@@ -344,8 +344,11 @@ class AIRunner:
             detail += f"\nOwner action needed: {r['owner_action']}"
         detail += f"\nTranscript: {rel}"
         level = {"fixed": "ok", "answered": "info"}.get(r.get("status"), "error")
-        eng.log.event("ai", f"[{r.get('status', '?')}] {job['title']}", detail, level=level, push=True,
-                      data={"job": job["id"]})
+        st = r.get("status")
+        alert = (["ai_needs_you", "ai_done"] if st in ("not_fixed", "needs_owner", "partially_fixed")
+                 else ["fixed", "ai_done"] if st == "fixed" else ["ai_done"])
+        eng.log.event("ai", f"[{st or '?'}] {job['title']}", detail, level=level, push=True,
+                      data={"job": job["id"]}, alert=alert)
         if r.get("status") in ("not_fixed", "needs_owner", "partially_fixed"):
             eng.notify(f"Arrgus AI needs you on {self.cfg['box']['name']}", detail[:800])
 

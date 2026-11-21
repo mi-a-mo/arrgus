@@ -97,6 +97,7 @@ class Logbook:
         self.push_now = threading.Event()
         self.recent = collections.deque(maxlen=300)
         self.last_push = {"ok": None, "at": None, "error": None}
+        self.alert_hook = None  # set by the engine: (categories, event) -> phone notifications
         self._init_repo()
         self._load_recent()
 
@@ -154,7 +155,8 @@ class Logbook:
                     pass
 
     # ---- writing ---------------------------------------------------------
-    def event(self, kind, title, detail="", level="info", data=None, push=False):
+    def event(self, kind, title, detail="", level="info", data=None, push=False, alert=None):
+        """Record an event. `alert`: notification category (or list) for phones that subscribed to it."""
         ev = {"ts": now_iso(), "kind": kind, "level": level,
               "title": self.scrub(title), "detail": self.scrub(detail or ""), "data": data or {}}
         with self.lock:
@@ -180,7 +182,13 @@ class Logbook:
         log.info("[%s] %s %s", kind, ev["title"], ("— " + ev["detail"][:200]) if ev["detail"] else "")
         if push or level in ("error", "critical"):
             self.push_now.set()
+        if alert and self.alert_hook:
+            try:
+                self.alert_hook(alert, ev)
+            except Exception:
+                log.exception("alert hook failed")
         return ev
+
 
     def write_file(self, rel, content, push=False):
         with self.lock:

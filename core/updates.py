@@ -183,14 +183,14 @@ class Updater:
         if newly:
             lines = [f"{e['service']}: {e['current'] or '?'} → {e['available'] or 'new build'}" for e in newly]
             self.engine.log.event("update", f"{len(newly)} container update(s) available — awaiting approval",
-                                  "\n".join(lines), level="notice", push=True)
+                                  "\n".join(lines), level="notice", push=True, alert="updates")
             self.engine.notify(f"{len(newly)} update(s) available on {self.cfg['box']['name']}",
                                "\n".join(lines) + "\nApprove them in the Arrgus dashboard.")
         prev_os = self.engine.state.data.get("os_reported", 0)
         if os_info["count"] and os_info["count"] != prev_os:
             self.engine.log.event("update", f"{os_info['count']} OS package update(s) available "
                                             f"({os_info['security']} security)",
-                                  ", ".join(os_info["packages"][:40]), level="info")
+                                  ", ".join(os_info["packages"][:40]), level="info", alert="updates")
             self.engine.state.data["os_reported"] = os_info["count"]
         if reason == "manual" and not newly:
             self.engine.log.event("info", "Manual version check: "
@@ -332,7 +332,8 @@ class Updater:
             sh(["docker", "tag", old_id, rb_tag])
         rc, out = self._pull(svc, s["build"])
         if rc:
-            eng.log.event("update", f"{svc}: download failed, nothing changed", out[-1500:], level="error")
+            eng.log.event("update", f"{svc}: download failed, nothing changed", out[-1500:], level="error",
+                          alert="problems")
             self._item(svc, status="failed", stage="Download failed; nothing changed", percent=100)
             return {"service": svc, "ok": False, "error": "pull failed"}
         self._item(svc, stage="Recreating container", percent=58)
@@ -366,11 +367,12 @@ class Updater:
             rolled = self._verify(svc, cname)
             eng.log.event("update", f"{svc} update FAILED health check — rolled back "
                                     f"({'healthy again' if rolled else 'still unhealthy!'})",
-                          detail, level="error", push=True)
+                          detail, level="error", push=True, alert="problems")
             self._item(svc, status="rolled_back", percent=100,
                        stage="Failed health check; rolled back" + ("" if rolled else " (STILL UNHEALTHY)"))
         else:
-            eng.log.event("update", f"{svc} update FAILED health check", detail, level="error", push=True)
+            eng.log.event("update", f"{svc} update FAILED health check", detail, level="error", push=True,
+                          alert="problems")
             self._item(svc, status="failed", stage="Failed health check", percent=100)
         return {"service": svc, "ok": False, "error": "failed verification"}
 
@@ -435,7 +437,7 @@ class Updater:
             ok = rc1 == 0 and rc2 == 0
             tail = "\n".join((out2 or out1).splitlines()[-25:]) + note
             eng.log.event("update", "OS packages upgraded" if ok else "OS package upgrade FAILED", tail,
-                          level="ok" if ok else "error", push=True)
+                          level="ok" if ok else "error", push=True, alert=None if ok else "problems")
             self._item(name, percent=98, stage="Re-checking for updates")
             self.check(reason="post-apply", wait=True)
             reboot = os.path.exists("/var/run/reboot-required")

@@ -133,6 +133,7 @@
     <div class="tabs" role="tablist">
       <button class="btn" role="tab" data-tab="services" aria-selected="true">Services</button>
       <button class="btn" role="tab" data-tab="ai" aria-selected="false">AI</button>
+      <button class="btn" role="tab" data-tab="notify" aria-selected="false">Notifications</button>
       <button class="btn" role="tab" data-tab="logs" aria-selected="false">Logs &amp; GitHub</button>
       <button class="btn" role="tab" data-tab="security" aria-selected="false">Password</button>
     </div>
@@ -168,6 +169,15 @@
         <p class="lead">When Arrgus finds a problem its scripted fixes can't solve, or you use Ask AI / Report issue, it
           hands the job to an AI coding agent running on this server. Pick the one you have an account for.</p>
         <div id="ai"><div class="empty">Loading…</div></div>
+      </div>
+    </section>
+
+    <section id="tab-notify" hidden>
+      <div class="card">
+        <h2>Phone notifications</h2>
+        <p class="lead">Phones get notifications through the Arrgus app. To add one, open <code>/app</code> on the phone,
+          install it to the home screen, and tap <b>Turn on notifications</b> on its Home tab. Each phone chooses what it's told about.</p>
+        <div id="push"><div class="empty">Loading…</div></div>
       </div>
     </section>
 
@@ -256,7 +266,8 @@ $("b-logout").onclick = async () => { await api("/api/settings/logout", {}); sho
 // ---- tabs --------------------------------------------------------------------------------------
 document.querySelectorAll("[data-tab]").forEach((b) => b.onclick = () => {
   document.querySelectorAll("[data-tab]").forEach((x) => x.setAttribute("aria-selected", x === b));
-  ["services", "ai", "logs", "security"].forEach((t) => $("tab-" + t).hidden = t !== b.dataset.tab);
+  ["services", "ai", "notify", "logs", "security"].forEach((t) => $("tab-" + t).hidden = t !== b.dataset.tab);
+  if (b.dataset.tab === "notify") loadPush();
   if (b.dataset.tab === "logs") loadLogs();
   if (b.dataset.tab === "ai") loadAI();
 });
@@ -450,6 +461,31 @@ function renderAI() {
     catch (err) { $("ai-err").textContent = err.message; e.target.disabled = false; }
   };
 }
+
+// ---- phone notifications ----------------------------------------------------------------------
+async function loadPush() {
+  let P;
+  try { P = await api("/api/settings/push"); } catch (e) { $("push").innerHTML = `<div class="err">${esc(e.message)}</div>`; return; }
+  if (!P.available) { $("push").innerHTML = `<p class="err">Notifications aren't available: ${esc(P.reason)}</p>`; return; }
+  const cats = P.categories;
+  $("push").innerHTML = P.phones.length ? P.phones.map((ph) => `<div class="row"><div class="pip ${ph.last ? (ph.last.ok ? "ok" : "fail") : "info"}"></div>
+      <div class="grow"><div class="name">${esc(ph.name)}</div>
+        <div class="detail">since ${esc(new Date(ph.created).toLocaleDateString())} · ${Object.keys(cats).filter((k) => ph.prefs[k]).map((k) => esc(cats[k].label)).join(", ") || "nothing selected"}
+        ${ph.last ? `<br>last notification ${esc(new Date(ph.last.at).toLocaleString())}: ${ph.last.ok ? "delivered" : esc(ph.last.detail)}` : ""}</div></div>
+      <span class="buttons"><button class="btn small" data-ptest="${esc(ph.id)}">Send test</button><button class="btn small danger" data-pdel="${esc(ph.id)}">Remove</button></span></div>`).join("")
+    : `<div class="empty">No phones yet.</div>`;
+}
+document.addEventListener("click", async (e) => {
+  const t = e.target.closest("[data-ptest]"), d = e.target.closest("[data-pdel]");
+  if (t) { t.disabled = true;
+    try { const r = await api("/api/settings/push/test", {id: t.dataset.ptest}); toast(r.ok ? "Test sent." : "Couldn't send: " + r.detail); }
+    catch (err) { toast(err.message); }
+    t.disabled = false; loadPush(); }
+  if (d) {
+    if (!confirm("Stop sending notifications to this phone? It can turn them on again from the app.")) return;
+    try { await api("/api/settings/push/remove", {id: d.dataset.pdel}); toast("Removed."); } catch (err) { toast(err.message); }
+    loadPush(); }
+});
 
 // ---- logs + GitHub ----------------------------------------------------------------------------
 const kb = (n) => n < 1024 ? `${n} B` : n < 1048576 ? `${(n / 1024).toFixed(n < 10240 ? 1 : 0)} KB` : `${(n / 1048576).toFixed(1)} MB`;
