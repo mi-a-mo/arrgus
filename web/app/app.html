@@ -25,14 +25,14 @@
   body.app textarea, body.app input { font-size: 16px; }
 
   /* top bar */
-  .ab-top { flex: none; display: flex; align-items: center; gap: 10px; padding: calc(env(safe-area-inset-top) + 8px) 14px 8px;
+  .ab-top { flex: none; display: flex; align-items: center; gap: 10px; padding: max(calc(env(safe-area-inset-top) + 14px), 24px) 14px 12px;
             background: #02060ae6; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); z-index: 5; }
-  .ab-top .emblem { width: 30px; height: 30px; filter: none; }
-  .ab-top .wm { font: 700 17px/1 var(--display); letter-spacing: .22em; color: var(--accent-hi); }
+  .ab-top .emblem { width: 34px; height: 34px; filter: drop-shadow(0 0 8px #2fb8a855); }
+  .ab-top .wm { font: 700 18px/1 var(--display); letter-spacing: .22em; color: var(--accent-hi); text-shadow: 0 0 12px #d9b45a55; }
   .ab-top .grow { flex: 1; }
-  .ab-top .status { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: var(--muted); }
+  .ab-top .status { display: inline-flex; align-items: center; gap: 7px; font-size: 13.5px; font-weight: 600; color: var(--text); }
   .ab-top .status .dot { width: 10px; height: 10px; box-shadow: none; }
-  .iconbtn { display: inline-grid; place-items: center; width: 40px; height: 40px; color: var(--muted); border: 1px solid transparent; background: none; }
+  .iconbtn { display: inline-grid; place-items: center; width: 40px; height: 40px; color: var(--text); border: 1px solid transparent; background: none; }
   .iconbtn:active { color: var(--accent-hi); border-color: var(--line-hi); }
   .iconbtn svg { width: 22px; height: 22px; }
 
