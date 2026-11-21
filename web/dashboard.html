@@ -10,7 +10,7 @@
 <style>
   /* Arrgus theme: Argus Panoptes — peacock blue-teal, iridescent eyes, Hera's gold */
   :root {
-    --bg0: #050f16; --bg1: #0c2e38; --card: #0b1b24; --card2: #11262f; --line: #1d3943; --line-hi: #2b5260;
+    --bg0: #02060a; --bg1: #061820; --card: #10252f; --card2: #173039; --line: #2a4a55; --line-hi: #3a6270;
     --text: #eee7d4; --muted: #a9bfc4; --accent: #d9b45a; --accent-hi: #f0d18a; --accent-soft: #d9b45a22;
     --accent-ink: #171003; --teal: #2fb8a8; --sapphire: #3f7fe0;
     --ok: #4fd18f; --warn: #f0b44c; --fail: #ff6b5e; --info: #6fb3ee;
@@ -24,7 +24,7 @@
     margin: 0; min-height: 100vh; padding: 28px 16px 60px; color: var(--text);
     font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     background:
-      radial-gradient(ellipse 900px 420px at 50% -60px, #2fb8a81f 0%, transparent 70%) fixed,
+      radial-gradient(ellipse 900px 380px at 50% -80px, #2fb8a814 0%, transparent 70%) fixed,
       radial-gradient(ellipse 700px 500px at 100% 100%, #3f7fe012 0%, transparent 70%) fixed,
       url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cg fill='none' stroke-width='1'%3E%3Cellipse cx='45' cy='50' rx='13' ry='17' stroke='%23d9b45a' stroke-opacity='.07'/%3E%3Cellipse cx='45' cy='52' rx='7' ry='9' stroke='%232fb8a8' stroke-opacity='.08'/%3E%3Cellipse cx='135' cy='130' rx='13' ry='17' stroke='%23d9b45a' stroke-opacity='.07'/%3E%3Cellipse cx='135' cy='132' rx='7' ry='9' stroke='%233f7fe0' stroke-opacity='.09'/%3E%3C/g%3E%3C/svg%3E") fixed,
       radial-gradient(circle at 50% 0%, var(--bg1) 0%, var(--bg0) 65%) fixed, var(--bg0);
@@ -54,7 +54,7 @@
   .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 12px; margin-bottom: 28px; }
   a.tile {
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
-    padding: 18px 8px; background: linear-gradient(180deg, #12303a 0%, #0b1c25 100%);
+    padding: 18px 8px; background: linear-gradient(180deg, #153440 0%, #10252f 100%);
     border: 1px solid var(--line); border-radius: 0; color: var(--text); text-decoration: none;
     font-size: 13px; font-weight: 500; transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease;
   }
@@ -62,7 +62,7 @@
   a.tile img { width: 36px; height: 36px; object-fit: contain; border-radius: 0; }
 
   .card { position: relative; background: var(--card); border: 1px solid var(--line); border-radius: 0; padding: 18px; margin-bottom: 16px;
-          box-shadow: 0 10px 30px #0006, inset 0 1px 0 #ffffff08; }
+          box-shadow: 0 12px 34px #000b, 0 0 0 1px #00000080, inset 0 1px 0 #ffffff0d; }
   .card::before { content: ""; position: absolute; left: 18px; right: 18px; top: -1px; height: 1px; background: var(--brass-line); opacity: .7; }
   .hero { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; justify-content: space-between; }
   .state { display: flex; align-items: center; gap: 14px; min-width: 0; }
@@ -154,7 +154,7 @@
   .toast.show { opacity: 1; }
   /* system panel + meters */
   .sys { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
-  .tile2 { background: linear-gradient(180deg, #12303a, #0e222b); border: 1px solid var(--line); border-radius: 0; padding: 14px; min-width: 0; }
+  .tile2 { background: linear-gradient(180deg, #19394450, #16333d), #16333d; border: 1px solid var(--line); border-radius: 0; padding: 14px; min-width: 0; }
   .tile2 .lbl { color: var(--muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: .1em; margin-bottom: 6px; }
   .tile2 .val { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
   .tile2 .val small { font-size: 13px; color: var(--muted); font-weight: 500; }
