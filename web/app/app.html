@@ -53,7 +53,7 @@
   .ab-tabs { flex: none; display: grid; grid-template-columns: repeat(5, 1fr); background: #02060af0; backdrop-filter: blur(10px);
              -webkit-backdrop-filter: blur(10px); border-top: 1px solid var(--line); z-index: 5;
              /* never closer than 26px to the bottom edge: clear of the rounded corners and home indicator */
-             padding: 4px max(10px, env(safe-area-inset-left)) calc(max(env(safe-area-inset-bottom), 22px) + 4px) max(10px, env(safe-area-inset-right)); }
+             padding: 4px max(10px, env(safe-area-inset-left)) calc(max(env(safe-area-inset-bottom), 12px) + 2px) max(10px, env(safe-area-inset-right)); }
   .ab-tabs button { all: unset; position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 0 4px;
                     color: var(--muted); font-size: 11px; letter-spacing: .02em; cursor: pointer; }
   .ab-tabs button svg { width: 24px; height: 24px; }
@@ -161,6 +161,12 @@
 <div class="toast" id="toast" role="status"></div>
 
 <script>
+// iOS gives a home-screen app with a solid status bar the space *below* the status bar (window.innerHeight),
+// but CSS 100% heights still use the full screen, pushing the tab bar off the bottom. Use the real height.
+function fitScreen() { document.documentElement.style.setProperty("--app-h", window.innerHeight + "px"); }
+fitScreen();
+window.addEventListener("resize", fitScreen);
+window.addEventListener("orientationchange", () => setTimeout(fitScreen, 300));
 const BOOT = {{BOOT_JSON}};
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
