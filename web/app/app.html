@@ -20,7 +20,7 @@
   [hidden] { display: none !important; }
   html { height: 100%; background: #050b12; }
   /* pinned to the visible screen (not 100% height, which iOS miscounts with a solid status bar) */
-  body.app { position: fixed; inset: 0; margin: 0; padding: 0; overflow: hidden; display: flex; flex-direction: column; font-size: 15px;
+  body.app { position: fixed; top: 0; left: 0; right: 0; height: var(--app-h, 100dvh); margin: 0; padding: 0; overflow: hidden; display: flex; flex-direction: column; font-size: 15px;
              overscroll-behavior: none; -webkit-user-select: none; user-select: none; }
   body.app input, body.app textarea, body.app pre, body.app .t-text, body.app .sel { -webkit-user-select: text; user-select: text; }
   body.app textarea, body.app input { font-size: 16px; }
@@ -162,6 +162,12 @@
 <div class="toast" id="toast" role="status"></div>
 
 <script>
+// Size the app to the height the phone actually shows. iOS's CSS heights include the status bar strip when the
+// app has a solid status bar, which pushed the tab bar off the bottom of the screen.
+function fitScreen() { document.documentElement.style.setProperty("--app-h", window.innerHeight + "px"); }
+fitScreen();
+window.addEventListener("resize", fitScreen);
+window.addEventListener("orientationchange", () => setTimeout(fitScreen, 300));
 const BOOT = {{BOOT_JSON}};
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
