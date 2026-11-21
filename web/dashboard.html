@@ -252,7 +252,12 @@
   .lbl + .dline { margin-top: 2px; }
   .dline .k { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .dline .nums { display: flex; gap: 8px; white-space: nowrap; font-variant-numeric: tabular-nums; }
-  .dline .free { color: var(--muted); }
+  .dline .space { all: unset; cursor: pointer; color: var(--muted); border-bottom: 1px dotted #a9bfc488; line-height: 1.2; }
+  .dline .space:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .dline .space .s-used { display: none; color: var(--text); }
+  .dline .space:hover .s-free, .dline .space:focus .s-free, .dline .space.on .s-free { display: none; }
+  .dline .space:hover .s-used, .dline .space:focus .s-used, .dline .space.on .s-used { display: inline; }
+  .dline .space.on { border-bottom-color: var(--accent); }
   .dline .v { font-weight: 600; min-width: 2.6em; text-align: right; }
   .dline .bar { grid-column: 1 / -1; margin-top: 4px; }
 </style>
@@ -357,6 +362,7 @@ function spark(vals) {
     <polyline points="0,${h} ${pts} ${w},${h}" class="area" stroke="none"/>
     <polyline points="${pts}" class="line" stroke-width="1.5" vector-effect="non-scaling-stroke"/></svg>`;
 }
+const spacePinned = new Set();  // drives the viewer tapped to keep showing "used of total"
 function renderSystem(sys) {
   if (!sys) return;
   const c = sys.cpu, m = sys.memory, d = sys.disks;
@@ -376,12 +382,15 @@ function renderSystem(sys) {
      ${bar(100 * t.c / t.crit, lvl(t.c, t.warn, t.crit))}`).join("") : `<div class="empty">No temperature sensors found.</div>`}
     <div class="sub">Media drives (USB/SATA) don't report temperature.</div></div>`;
   const disks = `<div class="tile2"><div class="lbl">Storage</div>${d.items.map((x) => x.mounted
-    ? `<div class="dline" title="${esc(x.path)}: ${bytes(x.used)} used · ${bytes(x.free)} free of ${bytes(x.total)}">
+    ? `<div class="dline">
          <span class="k">${esc(x.path)}</span>
-         <span class="nums"><span class="free">${bytes(x.free)} free</span><span class="v ${lvl(x.pct, d.warn, d.crit)}">${Math.round(x.pct)}%</span></span>
+         <span class="nums"><button type="button" class="space${spacePinned.has(x.path) ? " on" : ""}" data-space="${esc(x.path)}" aria-pressed="${spacePinned.has(x.path)}"
+           aria-label="${esc(x.path)}: ${bytes(x.free)} free, ${bytes(x.used)} used of ${bytes(x.total)}"><span class="s-free">${bytes(x.free)} free</span><span class="s-used">${bytes(x.used)} used of ${bytes(x.total)}</span></button><span class="v ${lvl(x.pct, d.warn, d.crit)}">${Math.round(x.pct)}%</span></span>
          ${bar(x.pct, lvl(x.pct, d.warn, d.crit))}</div>`
     : `<div class="dline"><span class="k">${esc(x.path)}</span><span class="v fail">NOT MOUNTED</span></div>`).join("")}</div>`;
+  const focused = document.activeElement?.dataset?.space;
   $("system").innerHTML = cpu + mem + temps + disks;
+  if (focused) [...document.querySelectorAll("[data-space]")].find((e) => e.dataset.space === focused)?.focus();
 }
 
 function progressHtml(p) {
@@ -548,6 +557,9 @@ document.addEventListener("click", async (ev) => {
   const g = ev.target.closest("[data-group]");
   if (g) { const k = g.dataset.group, cur = openGroups[k] ?? (g.textContent.includes("failing") || g.textContent.includes("warn"));
            openGroups[k] = !cur; safeSet("arrgus.groups", JSON.stringify(openGroups)); render(); return; }
+  const sp = ev.target.closest("[data-space]");
+  if (sp) { const k = sp.dataset.space; spacePinned.has(k) ? spacePinned.delete(k) : spacePinned.add(k);
+            sp.classList.toggle("on", spacePinned.has(k)); sp.setAttribute("aria-pressed", spacePinned.has(k)); return; }
   const dm = ev.target.closest("[data-dismiss]");
   if (dm) { safeSet("arrgus.progress.dismissed", dm.dataset.dismiss); return render(); }
   const a = ev.target.closest("[data-approve]");
