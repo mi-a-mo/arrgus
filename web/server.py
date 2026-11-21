@@ -224,6 +224,18 @@ class App:
         t.join(90)
         return 200, {"last_push": lg.last_push}
 
+    # ---- app layout diagnostics ----------------------------------------------
+    def do_app_layout(self, body):
+        """Store the phone app's screen measurements (no personal data beyond the browser's user agent)."""
+        f = STATE_DIR / "app_diag.json"
+        try:
+            rows = json.loads(f.read_text()) if f.exists() else []
+        except ValueError:
+            rows = []
+        rows = (rows + [dict(body, at=now_iso())])[-10:]
+        f.write_text(json.dumps(rows, indent=1))
+        return 200, {"ok": True}
+
     # ---- phone notifications -------------------------------------------------
     def push_info(self):
         from core.push import CATEGORIES
@@ -600,6 +612,7 @@ def make_handler(app):
                 "/api/ai/followup": lambda b: app.do_ai("followup", b),
                 "/api/reboot": app.do_reboot,
                 "/api/reboot/cancel": app.do_reboot_cancel,
+                "/api/app/layout": app.do_app_layout,
                 "/api/push/subscribe": lambda b: app.do_push("subscribe", b),
                 "/api/push/status": lambda b: app.do_push("status", b),
                 "/api/push/prefs": lambda b: app.do_push("prefs", b),

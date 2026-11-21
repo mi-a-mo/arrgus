@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#050b12">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Arrgus">
 <title>Arrgus</title>
 <link rel="manifest" href="/app/manifest.webmanifest">
@@ -19,8 +19,7 @@
 <style>
   [hidden] { display: none !important; }
   html { height: 100%; background: #050b12; }
-  /* full screen; the solid top bar runs up behind the clock and battery, the tab bar stays above the home indicator */
-  body.app { position: fixed; top: 0; left: 0; right: 0; height: var(--app-h, 100dvh); margin: 0; padding: 0; overflow: hidden; display: flex; flex-direction: column; font-size: 15px;
+  body.app { position: fixed; top: 0; left: 0; right: 0; height: var(--app-h, 100%); margin: 0; padding: 0; overflow: hidden; display: flex; flex-direction: column; font-size: 15px;
              overscroll-behavior: none; -webkit-user-select: none; user-select: none; }
   body.app input, body.app textarea, body.app pre, body.app .t-text, body.app .sel { -webkit-user-select: text; user-select: text; }
   body.app textarea, body.app input { font-size: 16px; }
@@ -162,12 +161,6 @@
 <div class="toast" id="toast" role="status"></div>
 
 <script>
-// Size the app to the height the phone actually shows. iOS's CSS heights include the status bar strip when the
-// app has a solid status bar, which pushed the tab bar off the bottom of the screen.
-function fitScreen() { document.documentElement.style.setProperty("--app-h", window.innerHeight + "px"); }
-fitScreen();
-window.addEventListener("resize", fitScreen);
-window.addEventListener("orientationchange", () => setTimeout(fitScreen, 300));
 const BOOT = {{BOOT_JSON}};
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -732,6 +725,28 @@ function openFromUrl(u) {
   refresh();
 }
 if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", (e) => { if (e.data && e.data.open) openFromUrl(e.data.open); });
+
+// ---------- layout diagnostics: the app reports its screen measurements so layout problems can be fixed
+// without a screenshot (numbers only; kept on the server in state/app_diag.json) ----------
+function reportLayout(reason) {
+  try {
+    const probe = document.createElement("div");
+    probe.style.cssText = "position:fixed;top:0;left:0;visibility:hidden;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)";
+    document.body.appendChild(probe);
+    const cs = getComputedStyle(probe), px = (v) => Math.round(parseFloat(v) || 0);
+    const inset = {top: px(cs.paddingTop), right: px(cs.paddingRight), bottom: px(cs.paddingBottom), left: px(cs.paddingLeft)};
+    probe.remove();
+    const r = (sel) => { const e = document.querySelector(sel); if (!e) return null; const b = e.getBoundingClientRect(); return {top: Math.round(b.top), bottom: Math.round(b.bottom), h: Math.round(b.height)}; };
+    const vv = window.visualViewport;
+    api("/api/app/layout", {reason, ua: navigator.userAgent, standalone: standalone(), status_bar: document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]')?.content,
+      dpr: window.devicePixelRatio, screen: [screen.width, screen.height], inner: [innerWidth, innerHeight], outer_h: outerHeight,
+      client_h: document.documentElement.clientHeight, vv: vv ? {h: Math.round(vv.height), top: Math.round(vv.offsetTop)} : null, inset,
+      body: r("body"), top_bar: r(".ab-top"), tab_bar: r(".ab-tabs"), tab_icon: r(".ab-tabs button svg")}).catch(() => {});
+  } catch {}
+}
+setTimeout(() => reportLayout("load"), 1500);
+let layoutT = null;
+window.addEventListener("resize", () => { clearTimeout(layoutT); layoutT = setTimeout(() => reportLayout("resize"), 800); });
 
 // ---------- install + offline support ----------
 let deferredInstall = null;
