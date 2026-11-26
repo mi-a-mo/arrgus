@@ -338,6 +338,12 @@ class Updater:
             return {"service": svc, "ok": False, "error": "pull failed"}
         self._item(svc, stage="Recreating container", percent=58)
         rc, out, err = eng.checker.compose("up", "-d", svc, timeout=600)
+        is_vpn = cname == (self.cfg["checks"].get("vpn") or {}).get("container")
+        if rc == 0 and is_vpn:
+            # The VPN container now has a new ID: its dependents are on the deleted one's namespace, so VPN
+            # checks (egress probe, WebUIs) would fail until they are re-attached. Re-attach BEFORE verifying.
+            self._item(svc, stage="Re-attaching VPN-routed containers", percent=65)
+            self._reattach_vpn_deps(cname, "updated")
         self._item(svc, stage="Health check", percent=70)
         ok = rc == 0 and self._verify(svc, cname, on_tick=lambda f, t: self._item(
             svc, percent=70 + 28 * f, stage=f"Checking health… {int(t)}s (rolls back if not healthy within 3 min)"))
@@ -349,12 +355,6 @@ class Updater:
                 after = None
             eng.log.event("update", f"{svc} updated {before or '?'} → {after or 'latest'}",
                           "Health verified after update.", level="ok", push=True)
-            if cname == (self.cfg["checks"].get("vpn") or {}).get("container"):
-                # The VPN container was recreated with a new ID: dependents must be recreated to join it.
-                self._item(svc, stage="Re-attaching VPN-routed containers", percent=99)
-                rok, rout = eng.fixer.reattach()
-                eng.log.event("fix", "Re-attached VPN-routed containers to the updated VPN container", rout[-1500:],
-                              level="ok" if rok else "error")
             self._item(svc, status="ok", stage=f"Updated {before or '?'} → {after or 'latest'}", percent=100)
             return {"service": svc, "ok": True}
         # roll back
@@ -364,6 +364,8 @@ class Updater:
             sh(["docker", "tag", rb_tag, s["image"]])
             sh(["docker", "compose", "-f", self.cfg["box"].get("compose_file", "docker-compose.yml"),
                 "up", "-d", "--pull", "never", svc], cwd=self.cfg["box"]["compose_dir"], timeout=600)
+            if is_vpn:
+                self._reattach_vpn_deps(cname, "rolled-back")
             rolled = self._verify(svc, cname)
             eng.log.event("update", f"{svc} update FAILED health check — rolled back "
                                     f"({'healthy again' if rolled else 'still unhealthy!'})",
@@ -375,6 +377,15 @@ class Updater:
                           alert="problems")
             self._item(svc, status="failed", stage="Failed health check", percent=100)
         return {"service": svc, "ok": False, "error": "failed verification"}
+
+    def _reattach_vpn_deps(self, cname, what):
+        """Wait for the (recreated) VPN container to be healthy, then recreate its dependents on it."""
+        eng = self.engine
+        eng.fixer._wait_healthy(cname, timeout=180)
+        rok, rout = eng.fixer.reattach()
+        eng.log.event("fix", f"Re-attached VPN-routed containers to the {what} VPN container", rout[-1500:],
+                      level="ok" if rok else "error")
+        return rok
 
     def _verify(self, svc, cname, timeout=180, on_tick=None):
         start = time.time()
